@@ -19,6 +19,7 @@ from fastapi.responses import Response
 from PIL import Image, ImageDraw
 
 from app.core.logging_config import get_logger
+from app.services.catalog_overlay import CatalogError, fetch_catalog
 from app.services.spherex_archive import DETECTOR_BANDS, SpherexError, spherex_archive
 from app.services.target_resolver import BUILTIN_TARGETS, resolve
 
@@ -34,6 +35,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "no_data": "SPHEREx frames were found, but none had valid pixels at this position.",
         "upstream": "The IRSA archive did not respond correctly. Please try again in a moment.",
         "bad_detector": "Detector must be 1-6 or 'all'.",
+        "catalog_down": "The reference catalog service is not responding. Try again later.",
     },
     "az": {
         "ok": "SPHEREx kadrları yükləndi",
@@ -43,6 +45,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "no_data": "SPHEREx kadrları tapıldı, lakin bu mövqedə etibarlı piksel yoxdur.",
         "upstream": "IRSA arxivi düzgün cavab vermədi. Bir az sonra yenidən cəhd edin.",
         "bad_detector": "Detektor 1-6 və ya 'all' olmalıdır.",
+        "catalog_down": "İstinad kataloq servisi cavab vermir. Bir az sonra yenidən cəhd edin.",
     },
 }
 
@@ -149,6 +152,50 @@ async def blink(
 ) -> dict[str, Any]:
     data = await _build(target, ra, dec, pmra, pmdec, ref_epoch, fov, detector, mode, per_epoch, max_frames, locale)
     return {"success": True, "message": _msg(locale, "ok"), "data": data}
+
+
+@router.get("/photometry", summary="Spectrum + light curve of one position from many SPHEREx exposures")
+async def photometry(
+    target: Optional[str] = Query(None, max_length=200),
+    ra: Optional[float] = Query(None, ge=0, lt=360),
+    dec: Optional[float] = Query(None, ge=-90, le=90),
+    pmra: Optional[float] = None,
+    pmdec: Optional[float] = None,
+    ref_epoch: Optional[float] = None,
+    detector: str = Query("all", description="1-6, comma list, or 'all'"),
+    max_frames: int = Query(60, ge=6, le=96),
+    aperture_px: float = Query(2.0, ge=1.0, le=4.0),
+    locale: str = "en",
+) -> dict[str, Any]:
+    tgt = await _target_from_query(target, ra, dec, pmra, pmdec, ref_epoch, locale)
+    dets = _parse_detectors(detector, locale)
+    try:
+        data = await spherex_archive.photometry(
+            ra=tgt["ra"], dec=tgt["dec"], detectors=dets, max_frames=max_frames,
+            pmra=tgt.get("pmra"), pmdec=tgt.get("pmdec"), ref_epoch=tgt.get("ref_epoch") or 2000.0,
+            aperture_px=aperture_px,
+        )
+    except SpherexError as exc:
+        _raise_archive(exc, locale)
+    data["position"]["name"] = tgt.get("name")
+    return {"success": True, "data": data}
+
+
+@router.get("/overlay", summary="Reference catalog sources (Gaia DR3 / CatWISE2020) around a position")
+async def overlay(
+    ra: float = Query(..., ge=0, lt=360),
+    dec: float = Query(..., ge=-90, le=90),
+    fov: float = Query(0.1, ge=0.02, le=0.5),
+    catalog: str = Query("gaia", pattern="^(gaia|catwise)$"),
+    limit: int = Query(1500, ge=10, le=5000),
+    locale: str = "en",
+) -> dict[str, Any]:
+    try:
+        data = await fetch_catalog(catalog, ra, dec, radius_deg=fov * 0.75, limit=limit)
+    except CatalogError as exc:
+        logger.warning(f"overlay {catalog} failed: {exc}")
+        raise HTTPException(status_code=502, detail=_msg(locale, "catalog_down"))
+    return {"success": True, "data": data}
 
 
 def _render_png_frames(data: dict[str, Any], scale: int = 4) -> list[Image.Image]:

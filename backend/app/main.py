@@ -8,8 +8,9 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any, AsyncGenerator
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.routes.catalog import router as catalog_router
 from app.api.routes.detection import router as detection_router
@@ -100,6 +101,20 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+@app.middleware("http")
+async def json_errors(request: Request, call_next):
+    """Turn unexpected exceptions into JSON 500s *inside* the CORS middleware.
+
+    Starlette's default 500 page is produced outside CORS, so browsers only saw an opaque
+    'Network Error'. Registered before CORSMiddleware so CORS wraps it.
+    """
+    try:
+        return await call_next(request)
+    except Exception as exc:  # noqa: BLE001 - last-resort handler
+        get_logger("main").exception(f"Unhandled error on {request.url.path}: {exc}")
+        return JSONResponse(status_code=500, content={"detail": f"Internal server error: {type(exc).__name__}"})
+
 
 # Configure CORS Middleware
 origins = settings.CORS_ORIGINS if isinstance(settings.CORS_ORIGINS, list) else [str(settings.CORS_ORIGINS)]

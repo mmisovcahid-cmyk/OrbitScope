@@ -165,6 +165,51 @@ export function pixelToWorld(x: number, y: number, grid: BlinkResult['grid']): [
   return [((ra % 360) + 360) % 360, dec];
 }
 
+/** RA/Dec -> pixel (x right, y up, 0-based) on the north-up TAN grid. Null if behind the tangent plane. */
+export function worldToPixel(ra: number, dec: number, grid: BlinkResult['grid']): [number, number] | null {
+  const d2r = Math.PI / 180;
+  const a = ra * d2r, d = dec * d2r, a0 = grid.ra * d2r, d0 = grid.dec * d2r;
+  const cosc = Math.sin(d0) * Math.sin(d) + Math.cos(d0) * Math.cos(d) * Math.cos(a - a0);
+  if (cosc <= 0) return null;
+  const xi = (Math.cos(d) * Math.sin(a - a0)) / cosc / d2r;
+  const eta = (Math.cos(d0) * Math.sin(d) - Math.sin(d0) * Math.cos(d) * Math.cos(a - a0)) / cosc / d2r;
+  const scale = grid.pixscale_arcsec / 3600;
+  return [grid.crpix[0] - xi / scale, grid.crpix[1] + eta / scale];
+}
+
+export function mjdToYear(mjd: number): number {
+  return 2000 + (mjd - 51544.5) / 365.25;
+}
+
+/** Linear proper-motion propagation (pm in mas/yr, pmra includes cos dec). */
+export function propagate(ra: number, dec: number, pmra: number, pmdec: number, fromYear: number, toYear: number): [number, number] {
+  const dt = toYear - fromYear;
+  const cosd = Math.max(Math.cos((dec * Math.PI) / 180), 1e-6);
+  return [ra + (pmra * dt) / 3.6e6 / cosd, dec + (pmdec * dt) / 3.6e6];
+}
+
+export interface CatalogSource {
+  id: string; ra: number; dec: number; pmra: number; pmdec: number; mag: number | null; parallax?: number | null;
+}
+
+export interface CatalogOverlay {
+  catalog: 'gaia' | 'catwise'; label: string; band: string; ref_epoch: number; count: number; truncated: boolean;
+  sources: CatalogSource[];
+}
+
+export interface PhotPoint {
+  mjd: number; date: string; detector: number; obs_id: string; wavelength_um: number | null;
+  flux_mjy: number | null; err_mjy: number | null; saturated: boolean; masked_fraction: number; flagged: boolean;
+}
+
+export interface PhotometryResult {
+  position: { ra: number; dec: number; name?: string | null };
+  aperture_arcsec: number; n_points: number; n_good: number; points: PhotPoint[]; units: string; elapsed_s: number;
+}
+
+export const OVERLAY_COLORS: Record<string, string> = { gaia: '#facc15', catwise: '#4ade80' };
+export const DETECTOR_COLORS = ['#a78bfa', '#60a5fa', '#22d3ee', '#4ade80', '#facc15', '#f87171'];
+
 export function formatRA(deg: number): string {
   const h = deg / 15;
   const hh = Math.floor(h);

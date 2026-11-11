@@ -1,17 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
-import { Search, Sparkles, Link2, Code2, Download, ExternalLink, AlertTriangle, Satellite, Clock } from 'lucide-react';
+import { Search, Sparkles, Link2, Code2, Download, ExternalLink, AlertTriangle, Satellite, Clock, Layers } from 'lucide-react';
 import BlinkViewer from '../components/blink/BlinkViewer';
+import PhotometryPanel from '../components/blink/PhotometryPanel';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { spherexService } from '../services';
 import api from '../services/api';
 
 const API_BASE = api.defaults.baseURL ?? '';
 import {
-  BlinkQuery, BlinkResult, DEFAULT_QUERY, DETECTOR_INFO, apiParams, errorText, formatDec, formatRA,
-  queryFromParams, queryToParams,
+  BlinkQuery, BlinkResult, CatalogOverlay, DEFAULT_QUERY, DETECTOR_INFO, OVERLAY_COLORS, apiParams, errorText,
+  formatDec, formatRA, queryFromParams, queryToParams,
 } from '../lib/spherex';
+
+type CatalogKey = 'gaia' | 'catwise';
 
 interface Preset { id: string; name: string; note: string; detector: number; kind: string }
 
@@ -87,6 +90,44 @@ export default function BlinkPage() {
     try { await navigator.clipboard.writeText(text); setCopied(key); window.setTimeout(() => setCopied(null), 1500); }
     catch { window.prompt(t('blink.share.copyManual'), text); }
   };
+
+  // Reference catalog overlays (Gaia DR3 / CatWISE2020) and the user-picked position.
+  const [overlays, setOverlays] = useState<Partial<Record<CatalogKey, CatalogOverlay>>>({});
+  const [overlayOn, setOverlayOn] = useState<Record<CatalogKey, boolean>>({ gaia: false, catwise: false });
+  const [overlayBusy, setOverlayBusy] = useState<CatalogKey | null>(null);
+  const [overlayError, setOverlayError] = useState<string | null>(null);
+  const [pick, setPick] = useState<[number, number] | null>(null);
+
+  useEffect(() => {
+    setOverlays({}); setOverlayOn({ gaia: false, catwise: false }); setOverlayError(null); setPick(null);
+  }, [result]);
+
+  const toggleOverlay = async (cat: CatalogKey) => {
+    if (!result) return;
+    if (overlayOn[cat]) { setOverlayOn({ ...overlayOn, [cat]: false }); return; }
+    setOverlayError(null);
+    if (!overlays[cat]) {
+      setOverlayBusy(cat);
+      try {
+        const res = await spherexService.overlay(result.grid.ra, result.grid.dec, result.grid.fov_deg, cat);
+        setOverlays((o) => ({ ...o, [cat]: res.data?.data }));
+      } catch (e) {
+        setOverlayError(errorText(e, t('blink.errors.timeout'), t('blink.errors.network', { url: API_BASE })));
+        setOverlayBusy(null);
+        return;
+      }
+      setOverlayBusy(null);
+    }
+    setOverlayOn((o) => ({ ...o, [cat]: true }));
+  };
+
+  const [magLimit, setMagLimit] = useState(16);
+  const activeOverlays = useMemo(() => (['gaia', 'catwise'] as CatalogKey[])
+    .filter((c) => overlayOn[c] && overlays[c])
+    .map((c) => {
+      const ov = overlays[c]!;
+      return { ...ov, sources: ov.sources.filter((s) => s.mag == null || s.mag <= magLimit) };
+    }), [overlays, overlayOn, magLimit]);
 
   const frame = result?.frames[Math.min(frameIdx, (result?.frames.length ?? 1) - 1)];
 
@@ -198,8 +239,33 @@ export default function BlinkPage() {
 
       {!loading && result && frame && (
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-4">
-          <div className={card}>
-            <BlinkViewer result={result} onFrameChange={setFrameIdx} />
+          <div className={`${card} space-y-3`}>
+            <BlinkViewer
+              result={result} onFrameChange={setFrameIdx} overlays={activeOverlays}
+              pick={pick} onPick={(ra, dec) => setPick([ra, dec])}
+            />
+            <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-white/5">
+              <span className="text-[11px] text-gray-500 flex items-center gap-1"><Layers className="w-3.5 h-3.5" /> {t('blink.overlay.title')}</span>
+              {(['gaia', 'catwise'] as CatalogKey[]).map((c) => (
+                <button key={c} onClick={() => toggleOverlay(c)} disabled={overlayBusy !== null}
+                  className={`px-2.5 py-1 rounded-full text-[11px] border flex items-center gap-1.5 ${overlayOn[c] ? 'bg-white/10 text-white' : 'bg-white/[0.03] text-gray-400 hover:text-gray-200'}`}
+                  style={{ borderColor: `${OVERLAY_COLORS[c]}66` }}>
+                  <span className="w-2 h-2 rounded-full" style={{ background: OVERLAY_COLORS[c] }} />
+                  {c === 'gaia' ? 'Gaia DR3' : 'CatWISE2020'}
+                  {overlays[c] && <span className="text-gray-500">({overlays[c]!.count})</span>}
+                  {overlayBusy === c && <span className="text-gray-500">…</span>}
+                </button>
+              ))}
+              <label className="text-[11px] text-gray-400 flex items-center gap-1">
+                {t('blink.overlay.magLimit')}
+                <select value={magLimit} onChange={(e) => setMagLimit(Number(e.target.value))}
+                  className="px-1.5 py-0.5 rounded bg-[#0b1224] border border-white/10 text-[11px] text-gray-200">
+                  {[12, 14, 16, 18, 21].map((m) => <option key={m} value={m}>≤ {m}</option>)}
+                </select>
+              </label>
+              <span className="text-[10px] text-gray-600 w-full">{t('blink.overlay.hint')}</span>
+              {overlayError && <span className="text-[11px] text-red-300">{overlayError}</span>}
+            </div>
           </div>
 
           <div className="space-y-4">
@@ -314,6 +380,14 @@ export default function BlinkPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {!loading && result && query && (
+        <PhotometryPanel
+          targetParams={apiParams(query)}
+          targetLabel={result.target.name || t('blink.panels.customPosition')}
+          pick={pick}
+        />
       )}
     </div>
   );

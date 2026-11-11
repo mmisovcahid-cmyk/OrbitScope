@@ -53,6 +53,10 @@ export const spherexService = {
     api.get('/api/v1/spherex/coverage', { params: { ra, dec, locale: locale() }, timeout: 240000 }),
   blink: (params: Record<string, string | number>, signal?: AbortSignal) =>
     api.get('/api/v1/spherex/blink', { params: { ...params, locale: locale() }, timeout: 300000, signal }),
+  overlay: (ra: number, dec: number, fov: number, catalog: 'gaia' | 'catwise') =>
+    api.get('/api/v1/spherex/overlay', { params: { ra, dec, fov, catalog, locale: locale() }, timeout: 120000 }),
+  photometry: (params: Record<string, string | number>, signal?: AbortSignal) =>
+    api.get('/api/v1/spherex/photometry', { params: { ...params, locale: locale() }, timeout: 600000, signal }),
   gifUrl: (params: Record<string, string | number>) => {
     const qs = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString();
     return `${api.defaults.baseURL}/api/v1/spherex/blink.gif?${qs}`;

@@ -471,12 +471,14 @@
       "modes": {
         "blink": "Blink",
         "difference": "Fərq",
-        "motion": "Hərəkət rəngi"
+        "motion": "Hərəkət rəngi",
+        "stack": "Cəm"
       },
       "modeHelp": {
         "blink": "Kadrları zaman ardıcıllığı ilə oynadır.",
         "difference": "Cari kadr çıxılsın istinad kadrı: qırmızı = indi daha parlaq, mavi = indi daha zəif. Sabit ulduzlar silinir.",
-        "motion": "İstinad kadrı qırmızı, cari kadr mavi-yaşıl. Sabit ulduzlar ağ görünür; hərəkət edən obyektlər qırmızı/mavi cüt kimi görünür."
+        "motion": "İstinad kadrı qırmızı, cari kadr mavi-yaşıl. Sabit ulduzlar ağ görünür; hərəkət edən obyektlər qırmızı/mavi cüt kimi görünür.",
+        "stack": "Bütün kadrların ortalaması: zəif sabit mənbələr görünür, hərəkət edənlər yayılır."
       },
       "reference": "İstinad",
       "stretch": "Kontrast",
@@ -485,7 +487,8 @@
       "maskOverlay": "Bayraqlı / doymuş pikselləri vurğula",
       "smooth": "Hamar piksellər",
       "black": "Qara səviyyə",
-      "white": "Ağ səviyyə"
+      "white": "Ağ səviyyə",
+      "stackLabel": "{{n}} kadrın cəmi (daha dərin, sabit mənbələr)"
     },
     "flagHelp": {
       "OVERFLOW": "Detektor doyub (parlaq mənbə)",
@@ -497,6 +500,28 @@
       "HOT": "İsti piksel (maskalanıb)",
       "NONFUNC": "İşləməyən piksel (maskalanıb)",
       "DICHROIC": "Dixroik artefakt bölgəsi"
+    },
+    "overlay": {
+      "title": "Kataloq overlay",
+      "hint": "Markerlər hər ulduzun xüsusi hərəkəti ilə kadrın tarixinə köçürülür. Bütöv dairə: > 0.2″/il.",
+      "magLimit": "Ulduz ölçüsü"
+    },
+    "phot": {
+      "title": "Spektr və işıq əyrisi",
+      "measureTarget": "{{name}} ölç",
+      "measurePick": "Seçilmiş nöqtəni ölç",
+      "pickHint": "Əvvəlcə mövqe seçmək üçün şəklin üzərinə klikləyin.",
+      "picked": "Seçilmiş nöqtə",
+      "explain": "SPHEREx xətti dəyişən filtrlərdən istifadə edir, buna görə hər ekspozisiya mənbəni bir az fərqli dalğa uzunluğunda görür. Eyni nöqtəni çoxlu ekspozisiyada ölçmək 0.75–5 µm spektri və işıq əyrisini verir. İlk ölçmə 1–3 dəqiqə çəkir.",
+      "loading": "SPHEREx ekspozisiyalarında ölçülür… {{seconds}} san",
+      "summary": "{{total}} ölçmədən {{good}} yaxşı · apertura {{ap}}″",
+      "showFlagged": "{{n}} bayraqlı/doymuş nöqtəni göstər",
+      "noGood": "Bütün ölçmələr bayraqlıdır (adətən mənbə doyub — SPHEREx üçün çox parlaqdır). Yenə də görmək üçün 'göstər' qutusunu işarələyin.",
+      "spectrum": "Spektr (axın / dalğa uzunluğu)",
+      "lightCurve": "İşıq əyrisi (axın / zaman)",
+      "saturated": "doyub",
+      "flagged": "aperturada bayraqlı piksellər",
+      "lvfNote": "rəng = detektor"
     }
   }
 }

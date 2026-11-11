@@ -8,7 +8,7 @@
 |---|---|
 | **0 — Təmizlik** | ✅ Detection route səhvi düzəldildi və `pipeline_manager` singleton-u əlavə olundu, real pipeline artıq işləyir (sintetik kadrlarda, `[SIMULATED]` etiketi ilə). Port 5173-ə keçirildi, code-splitting əlavə olundu, naviqasiya i18n-ə keçirildi, işləməyən tema düyməsi silindi, səhifələrə padding və mobil naviqasiya əlavə olundu. ⏳ ESLint quraşdırılmayıb. |
 | **1 — Real SPHEREx blink MVP** | ✅ Hazırdır, 5 sınaq hədəfində yoxlanıldı. ⚠️ WISE 0855 D6-da çox zəifdir: hər keçidə 4 ekspozisiya toplandıqda gözlə görmək çətindir. |
-| 2 — Elmi alətlər | Qismən: Fərq və Hərəkət rəngi rejimləri, bayraq maskası və bayraq statistikası hazırdır. ⏳ Aladin/Gaia/WISE overlay, spektr, işıq əyrisi. |
+| 2 — Elmi alətlər | ✅ Fərq, Hərəkət rəngi, Cəm (stack) rejimləri. ✅ Gaia DR3 və CatWISE2020 overlay-i: markerlər proper motion ilə hər kadrın tarixinə köçürülür, ulduz ölçüsü süzgəci var, CatWISE artefaktları süzülür. ✅ Hədəf və ya kliklənmiş nöqtə üçün aperture fotometriyası: hər pikselin LVF dalğa uzunluğu ilə 0.75–5 µm spektr və işıq əyrisi. ε Indi B-də real T-cırtdan spektri alındı (H₂O 1.4 µm, CH₄, CO 4.6 µm udulmaları görünür). ⚠️ Çox parlaq ulduzlar (R Dra, Barnard) SPHEREx-də doyur, onların ölçmələri "doymuş" kimi işarələnir. ⏳ Aladin Lite (CDS servisləri hazırda əlçatmazdır). |
 | 3 — Real məlumatda aşkarlama | ⏳ |
 | 4 — İstehsal | Qismən: retry, disk keşi, yeni buraxılışların avtomatik daxil olması. ⏳ Fon tapşırıqları və irəliləyiş, Docker. |
 

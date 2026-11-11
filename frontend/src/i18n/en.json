@@ -471,12 +471,14 @@
       "modes": {
         "blink": "Blink",
         "difference": "Difference",
-        "motion": "Motion colour"
+        "motion": "Motion colour",
+        "stack": "Stack"
       },
       "modeHelp": {
         "blink": "Play the frames in time order.",
         "difference": "Current frame minus the reference frame: red = brighter now, blue = fainter now. Static stars cancel out.",
-        "motion": "Reference frame in red, current frame in cyan. Static stars look white; moving objects show a red/cyan pair."
+        "motion": "Reference frame in red, current frame in cyan. Static stars look white; moving objects show a red/cyan pair.",
+        "stack": "Average of all frames: fainter static sources become visible, moving ones smear out."
       },
       "reference": "Reference",
       "stretch": "Stretch",
@@ -485,7 +487,8 @@
       "maskOverlay": "Highlight flagged / saturated pixels",
       "smooth": "Smooth pixels",
       "black": "Black level",
-      "white": "White level"
+      "white": "White level",
+      "stackLabel": "Stack of {{n}} frames (deeper, static sources)"
     },
     "flagHelp": {
       "OVERFLOW": "Detector saturated (bright source)",
@@ -497,6 +500,28 @@
       "HOT": "Hot pixel (masked)",
       "NONFUNC": "Non-functional pixel (masked)",
       "DICHROIC": "Dichroic artefact region"
+    },
+    "overlay": {
+      "title": "Catalog overlay",
+      "hint": "Markers move with each star's proper motion to the date of the frame. Solid circles: > 0.2″/yr.",
+      "magLimit": "Magnitude"
+    },
+    "phot": {
+      "title": "Spectrum & light curve",
+      "measureTarget": "Measure {{name}}",
+      "measurePick": "Measure clicked point",
+      "pickHint": "Click on the image first to choose a position.",
+      "picked": "Clicked point",
+      "explain": "SPHEREx uses linear variable filters, so every exposure sees a source at a slightly different wavelength. Measuring the same spot in many exposures gives a 0.75–5 µm spectrum and a light curve. First run takes 1–3 minutes.",
+      "loading": "Measuring in SPHEREx exposures… {{seconds}} s",
+      "summary": "{{good}} good of {{total}} measurements · aperture {{ap}}″",
+      "showFlagged": "show {{n}} flagged/saturated",
+      "noGood": "All measurements are flagged (usually the source is saturated — too bright for SPHEREx). Tick 'show flagged' to see them anyway.",
+      "spectrum": "Spectrum (flux vs wavelength)",
+      "lightCurve": "Light curve (flux vs time)",
+      "saturated": "saturated",
+      "flagged": "flagged pixels in aperture",
+      "lvfNote": "colour = detector"
     }
   }
 }

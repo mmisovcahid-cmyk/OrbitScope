@@ -127,6 +127,63 @@ def test_assemble_coadds_and_encodes(tmp_path) -> None:
     assert frames[0]["target_px"] == [15.0, 15.0]
 
 
+def test_aperture_photometry_recovers_flux_and_flags_saturation() -> None:
+    c = _cutout()
+    p = sa.aperture_photometry(c, 100.0, 10.0, r_ap=3.0)
+    assert p is not None and not p["flagged"]
+    omega = (6.15 / 206264.806) ** 2
+    expected = 100 * 2 * np.pi * 2.0 * (1 - np.exp(-9 / 4.0)) * omega * 1e9  # Gaussian sigma^2 = 2
+    assert p["flux_mjy"] == pytest.approx(expected, rel=0.05)
+    assert p["wavelength_um"] == pytest.approx(2.0)
+
+    c.flags[29:32, 29:32] |= 1 << sa.DEFAULT_FLAG_BITS["OVERFLOW"]
+    c.flags[28:33, 28:33] |= 1 << sa.DEFAULT_FLAG_BITS["HOT"]  # mostly-masked aperture
+    sat = sa.aperture_photometry(c, 100.0, 10.0, r_ap=3.0)
+    assert sat["saturated"] and sat["flagged"]
+    # Every value must be a plain Python type so FastAPI can serialise it (numpy.bool_ caused a 500).
+    import json
+    json.dumps(sat)
+    assert all(type(v) in (int, float, str, bool, type(None)) for v in sat.values())
+
+
+def test_aperture_photometry_off_image_returns_none() -> None:
+    assert sa.aperture_photometry(_cutout(), 100.5, 10.0) is None
+
+
+def test_select_for_photometry_spreads_over_detectors() -> None:
+    frames = [_rec(60900 + i, det) for det in range(1, 7) for i in range(30)]
+    picked = sa.select_for_photometry(frames, 36)
+    assert len(picked) == 36
+    assert {f.detector for f in picked} == {1, 2, 3, 4, 5, 6}
+
+
+def test_catwise_filters_artifacts_and_untrusted_motion(monkeypatch) -> None:
+    import asyncio
+
+    from app.services import catalog_overlay as co
+
+    rows = [
+        {"source_name": "A", "ra": "10", "dec": "1", "pmra": "1.0", "pmdec": "0", "sigpmra": "0.01", "sigpmdec": "0.01",
+         "w1mpro": "10", "w2mpro": "9", "ab_flags": "00", "nb": "1"},
+        {"source_name": "HALO", "ra": "10", "dec": "1", "pmra": "2.0", "pmdec": "0", "sigpmra": "0.01", "sigpmdec": "0.01",
+         "w1mpro": "10", "w2mpro": "9", "ab_flags": "0H", "nb": "3"},
+        {"source_name": "BLEND", "ra": "10", "dec": "1", "pmra": "2.0", "pmdec": "0", "sigpmra": "0.01", "sigpmdec": "0.01",
+         "w1mpro": "10", "w2mpro": "9", "ab_flags": "00", "nb": "2"},
+    ]
+
+    async def fake_tap(url, query, extra=None):
+        return rows
+
+    monkeypatch.setattr(co, "_tap", fake_tap)
+    co._cache.clear()
+    res = asyncio.run(co.fetch_catalog("catwise", 10.0, 1.0, 0.05))
+    ids = [s["id"] for s in res["sources"]]
+    assert ids == ["CWISE A", "CWISE BLEND"]
+    assert res["sources"][0]["pmra"] == pytest.approx(1000.0)  # arcsec/yr -> mas/yr
+    assert res["sources"][1]["pmra"] == 0.0  # blended: motion not trusted
+    assert res["ref_epoch"] == 2015.4
+
+
 # ---------------------------------------------------------------- API (offline paths)
 @pytest.fixture(scope="module")
 def client() -> TestClient:
@@ -151,6 +208,21 @@ def test_blink_rejects_bad_detector_localized(client: TestClient) -> None:
     res = client.get("/api/v1/spherex/blink", params={"ra": 10, "dec": 10, "detector": "9", "locale": "az"})
     assert res.status_code == 400
     assert "Detektor" in res.json()["detail"]
+
+
+def test_unhandled_errors_are_json_with_cors(monkeypatch) -> None:
+    from app.api.routes import spherex as route
+
+    async def boom(*a, **k):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(route.spherex_archive, "query_frames", boom)
+    with TestClient(app, raise_server_exceptions=False) as c:
+        res = c.get("/api/v1/spherex/coverage", params={"ra": 10, "dec": 10},
+                    headers={"Origin": "http://localhost:5174"})
+    assert res.status_code == 500
+    assert "RuntimeError" in res.json()["detail"]
+    assert res.headers.get("access-control-allow-origin") == "http://localhost:5174"
 
 
 def test_blink_validates_fov(client: TestClient) -> None:

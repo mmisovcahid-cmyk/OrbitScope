@@ -45,6 +45,9 @@ This is the only part of the app that uses real mission data; everything else st
 - Routes are in `app/api/routes/spherex.py`: `/api/v1/spherex/{targets,resolve,coverage,blink,blink.gif}`.
 - Frontend: `pages/BlinkPage.tsx` (`/`), `pages/EmbedPage.tsx` (`/embed`, iframe-friendly), `components/blink/BlinkViewer.tsx`, `lib/spherex.ts`. The URL query (`target, ra, dec, fov, det, mode, per, max`) is the source of truth, so links are shareable.
 - The IRSA cutout service sometimes returns 503; `fetch_cutout` retries with backoff.
+- `/api/v1/spherex/photometry` measures one position in up to 96 exposures, spread over detectors and time (`select_for_photometry`). Each point's wavelength comes from that pixel's LVF wavelength via the `WCS-WAVE` table (`Cutout.wavelength_at`), so the same result gives both a spectrum and a light curve. Saturated (OVERFLOW) or mostly masked apertures are returned with `flagged: true` rather than dropped.
+- `/api/v1/spherex/overlay` (`app/services/catalog_overlay.py`) serves Gaia DR3 (ESA TAP, epoch 2016.0) and CatWISE2020 (IRSA TAP, epoch 2015.4, pm converted to mas/yr). CatWISE rows with D/P/H/O artifact flags are dropped, and motions of blended (nb>1) or low-S/N detections are zeroed. The browser propagates each marker to the date of the frame being shown.
+- The uvicorn `--reload` watcher restarts the backend on any change under `backend/` (tests included), which drops in-flight long requests. Expect this while editing during a long blink or photometry call.
 
 ## Backend architecture
 

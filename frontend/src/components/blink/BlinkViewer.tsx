@@ -2,17 +2,41 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pause, Play, SkipBack, SkipForward, Crosshair, Layers } from 'lucide-react';
 import {
-  BlinkResult, ColorMapKind, DecodedFrame, StretchKind, buildLut, decodeFrames, formatDec, formatRA,
-  percentiles, pixelToWorld, stretchValue,
+  BlinkResult, CatalogOverlay, ColorMapKind, DecodedFrame, OVERLAY_COLORS, StretchKind, buildLut, decodeFrames,
+  formatDec, formatRA, mjdToYear, percentiles, pixelToWorld, propagate, stretchValue, worldToPixel,
 } from '../../lib/spherex';
 
-export type ViewMode = 'blink' | 'difference' | 'motion';
+export type ViewMode = 'blink' | 'difference' | 'motion' | 'stack';
 
 interface Props {
   result: BlinkResult;
   compact?: boolean;
   autoplay?: boolean;
   onFrameChange?: (index: number) => void;
+  overlays?: CatalogOverlay[];
+  pick?: [number, number] | null;
+  onPick?: (ra: number, dec: number) => void;
+}
+
+interface OverlayMark { x: number; y: number; color: string; fast: boolean; label: string; info: string }
+
+/** Mean of all frames: a deeper image for faint, static sources. */
+function stackFrames(frames: DecodedFrame[]): DecodedFrame | null {
+  if (!frames.length) return null;
+  const n = frames[0].values.length;
+  const values = new Float32Array(n);
+  const mask = new Uint8Array(n);
+  for (let i = 0; i < n; i++) {
+    let s = 0, k = 0;
+    for (const f of frames) {
+      const v = f.values[i];
+      if (Number.isFinite(v)) { s += v; k++; }
+      if (f.mask[i]) mask[i] = 1;
+    }
+    values[i] = k ? s / k : NaN;
+  }
+  const mjd = frames.reduce((a, f) => a + f.meta.mjd, 0) / frames.length;
+  return { meta: { ...frames[0].meta, mjd, index: -1 }, values, mask };
 }
 
 interface RenderOpts {
@@ -74,7 +98,9 @@ function diffLimit(cur: DecodedFrame, ref: DecodedFrame): number {
   return Math.max(percentiles([d], [99.5], true)[0], 1e-6);
 }
 
-export default function BlinkViewer({ result, compact = false, autoplay = true, onFrameChange }: Props) {
+export default function BlinkViewer({
+  result, compact = false, autoplay = true, onFrameChange, overlays = [], pick = null, onPick,
+}: Props) {
   const { t } = useTranslation();
   const frames = useMemo(() => decodeFrames(result), [result]);
   const { width: w, height: h } = result.grid;
@@ -107,8 +133,30 @@ export default function BlinkViewer({ result, compact = false, autoplay = true, 
   const diffLut = useMemo(() => buildLut('diverging'), []);
   const opts: RenderOpts = { mode, lo, hi, stretch, lut, diffLut, showMask };
 
-  const cur = frames[Math.min(idx, frames.length - 1)];
+  const stacked = useMemo(() => stackFrames(frames), [frames]);
+  const cur = mode === 'stack' && stacked ? stacked : frames[Math.min(idx, frames.length - 1)];
   const ref = frames[Math.min(refIdx, frames.length - 1)];
+
+  // Catalog markers, moved to the epoch of the displayed frame by their proper motion.
+  const marks = useMemo<OverlayMark[]>(() => {
+    if (!cur || !overlays.length) return [];
+    const year = mjdToYear(cur.meta.mjd);
+    const out: OverlayMark[] = [];
+    for (const ov of overlays) {
+      for (const s of ov.sources) {
+        const [ra, dec] = propagate(s.ra, s.dec, s.pmra, s.pmdec, ov.ref_epoch, year);
+        const p = worldToPixel(ra, dec, result.grid);
+        if (!p || p[0] < -1 || p[1] < -1 || p[0] > w || p[1] > h) continue;
+        const pm = Math.hypot(s.pmra, s.pmdec);
+        out.push({
+          x: p[0], y: p[1], color: OVERLAY_COLORS[ov.catalog], fast: pm > 200,
+          label: s.id,
+          info: `${s.id} · ${ov.band} ${s.mag != null ? s.mag.toFixed(2) : '—'} · μ ${(pm / 1000).toFixed(2)}″/yr`,
+        });
+      }
+    }
+    return out;
+  }, [cur, overlays, result.grid, w, h]);
   const lim = useMemo(() => (cur && ref && mode === 'difference' ? diffLimit(cur, ref) : 1), [cur, ref, mode]);
 
   // Draw the main canvas.
@@ -170,6 +218,26 @@ export default function BlinkViewer({ result, compact = false, autoplay = true, 
 
   const hoverWorld = hover ? pixelToWorld(hover.x, hover.y, result.grid) : null;
   const hoverVal = hover ? cur.values[hover.y * w + hover.x] : NaN;
+  let hoverMark: OverlayMark | null = null;
+  if (hover && marks.length) {
+    let best = 2.0;
+    for (const m of marks) {
+      const d = Math.hypot(m.x - hover.x, m.y - hover.y);
+      if (d < best) { best = d; hoverMark = m; }
+    }
+  }
+  const pickPx = pick ? worldToPixel(pick[0], pick[1], result.grid) : null;
+
+  const onClickImage = (e: React.MouseEvent) => {
+    const box = boxRef.current?.getBoundingClientRect();
+    if (!onPick || !box) return;
+    // Sub-pixel position straight from the click (does not depend on a prior mousemove).
+    const x = ((e.clientX - box.left) / box.width) * w - 0.5;
+    const y = h - ((e.clientY - box.top) / box.height) * h - 0.5;
+    if (x < -0.5 || x > w - 0.5 || y < -0.5 || y > h - 0.5) return;
+    const [ra, dec] = pixelToWorld(x, y, result.grid);
+    onPick(ra, dec);
+  };
   const scaleBarPx = 60 / result.grid.pixscale_arcsec; // 1 arcmin
   const tp = cur.meta.target_px;
   const markR = Math.max(2.5, w / 22);
@@ -183,9 +251,10 @@ export default function BlinkViewer({ result, compact = false, autoplay = true, 
       {/* Image */}
       <div
         ref={boxRef}
-        className={`relative w-full aspect-square mx-auto rounded-xl overflow-hidden border border-white/10 bg-black cursor-crosshair ${compact ? '' : 'max-w-[min(100%,68vh)]'}`}
+        className={`relative w-full aspect-square mx-auto rounded-xl overflow-hidden border border-white/10 bg-black ${onPick ? 'cursor-crosshair' : 'cursor-default'} ${compact ? '' : 'max-w-[min(100%,68vh)]'}`}
         onMouseMove={onMove}
         onMouseLeave={() => setHover(null)}
+        onClick={onClickImage}
       >
         <canvas
           ref={canvasRef}
@@ -202,6 +271,19 @@ export default function BlinkViewer({ result, compact = false, autoplay = true, 
               <line x1={tp[0] + 0.5} y1={h - tp[1] - 0.5 + markR * 1.2} x2={tp[0] + 0.5} y2={h - tp[1] - 0.5 + markR * 2} />
             </g>
           )}
+          {marks.map((m, i) => (
+            <circle
+              key={i} cx={m.x + 0.5} cy={h - m.y - 0.5} r={m.fast ? markR * 0.9 : Math.max(0.9, w / 70)}
+              fill="none" stroke={m.color} strokeWidth={Math.max(0.15, w / (m.fast ? 220 : 400))}
+              opacity={m.fast ? 1 : 0.75} strokeDasharray={m.fast ? undefined : `${w / 150} ${w / 300}`}
+            />
+          ))}
+          {pickPx && (
+            <g stroke="#e879f9" strokeWidth={Math.max(0.25, w / 260)}>
+              <line x1={pickPx[0] + 0.5 - markR * 0.7} y1={h - pickPx[1] - 0.5 - markR * 0.7} x2={pickPx[0] + 0.5 + markR * 0.7} y2={h - pickPx[1] - 0.5 + markR * 0.7} />
+              <line x1={pickPx[0] + 0.5 - markR * 0.7} y1={h - pickPx[1] - 0.5 + markR * 0.7} x2={pickPx[0] + 0.5 + markR * 0.7} y2={h - pickPx[1] - 0.5 - markR * 0.7} />
+            </g>
+          )}
           {scaleBarPx < w * 0.8 && (
             <line x1={w * 0.05} y1={h * 0.95} x2={w * 0.05 + scaleBarPx} y2={h * 0.95} stroke="white" strokeWidth={Math.max(0.3, w / 200)} />
           )}
@@ -211,6 +293,7 @@ export default function BlinkViewer({ result, compact = false, autoplay = true, 
           {mode === 'blink' && <>{cur.meta.date.slice(0, 10)} · {idx + 1}/{frames.length}</>}
           {mode === 'difference' && <>{cur.meta.date.slice(0, 10)} − {ref.meta.date.slice(0, 10)}</>}
           {mode === 'motion' && <><span className="text-red-400">{ref.meta.date.slice(0, 10)}</span> / <span className="text-cyan-300">{cur.meta.date.slice(0, 10)}</span></>}
+          {mode === 'stack' && <>{t('blink.viewer.stackLabel', { n: frames.length })}</>}
         </div>
         <div className="absolute top-2 right-2 px-1.5 py-1 rounded-md bg-black/60 text-[10px] font-mono text-gray-200 leading-tight text-center">
           <div>N ↑</div><div>← E</div>
@@ -226,7 +309,9 @@ export default function BlinkViewer({ result, compact = false, autoplay = true, 
       {/* Hover readout */}
       {!compact && (
         <div className="h-5 text-[11px] font-mono text-gray-400">
-          {hoverWorld ? (
+          {hoverMark ? (
+            <span style={{ color: hoverMark.color }}>{hoverMark.info}</span>
+          ) : hoverWorld ? (
             <>RA {formatRA(hoverWorld[0])} · Dec {formatDec(hoverWorld[1])} · ({hover!.x}, {hover!.y}) · {Number.isFinite(hoverVal) ? `${hoverVal.toFixed(3)} MJy/sr` : 'NaN'}</>
           ) : (
             <span className="text-gray-600">{t('blink.viewer.hoverHint')}</span>
@@ -257,10 +342,14 @@ export default function BlinkViewer({ result, compact = false, autoplay = true, 
       {/* View options */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex rounded-lg overflow-hidden border border-white/10">
-          {(['blink', 'difference', 'motion'] as ViewMode[]).map((m) => (
+          {(['blink', 'difference', 'motion', 'stack'] as ViewMode[]).map((m) => (
             <button
               key={m}
-              onClick={() => { setMode(m); if (m !== 'blink' && idx === refIdx && frames.length > 1) setIdx(frames.length - 1); }}
+              onClick={() => {
+                setMode(m);
+                if (m === 'stack') setPlaying(false);
+                if ((m === 'difference' || m === 'motion') && idx === refIdx && frames.length > 1) setIdx(frames.length - 1);
+              }}
               className={`px-3 py-1.5 text-xs ${mode === m ? 'bg-sky-500/20 text-sky-300' : 'bg-white/[0.03] text-gray-400 hover:text-gray-200'}`}
               title={t(`blink.viewer.modeHelp.${m}`)}
             >
@@ -268,7 +357,7 @@ export default function BlinkViewer({ result, compact = false, autoplay = true, 
             </button>
           ))}
         </div>
-        {needsRef && (
+        {needsRef && mode !== 'stack' && (
           <label className="flex items-center gap-1.5 text-[11px] text-gray-400">
             {t('blink.viewer.reference')}
             <select className={sel} value={refIdx} onChange={(e) => setRefIdx(Number(e.target.value))}>

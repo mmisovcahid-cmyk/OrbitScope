@@ -116,6 +116,16 @@ class Cutout:
     mjd: float
     wavelength_um: Optional[float]
     flag_bits: dict[str, int] = field(default_factory=dict)
+    wave_wcs: Optional[WCS] = None  # per-pixel wavelength (LVF), from the WCS-WAVE lookup table
+
+    def wavelength_at(self, x: float, y: float) -> Optional[float]:
+        if self.wave_wcs is None:
+            return self.wavelength_um
+        try:
+            lam, _ = self.wave_wcs.pixel_to_world_values(x, y)
+            return float(lam) if np.isfinite(lam) else None
+        except Exception:
+            return self.wavelength_um
 
 
 def mjd_to_iso(mjd: float) -> str:
@@ -346,6 +356,7 @@ class SpherexArchive:
                         hdr[k] = f"{hdr[k]}-SIP"
             wcs = WCS(hdr)
             wavelength = None
+            ww = None
             try:
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
@@ -355,6 +366,7 @@ class SpherexArchive:
                 wavelength = float(lam) if np.isfinite(lam) else None
             except Exception:
                 wavelength = None
+                ww = None
             bits = dict(DEFAULT_FLAG_BITS)
             if "FLAGS" in hdul:
                 for k, v in hdul["FLAGS"].header.items():
@@ -363,7 +375,7 @@ class SpherexArchive:
             mjd = float(hdr.get("MJD-AVG", rec.mjd))
         url_file = path.with_suffix(".url")
         url = url_file.read_text(encoding="utf-8") if url_file.exists() else ""
-        return Cutout(rec, url, image, flags, variance, wcs, mjd, wavelength, bits)
+        return Cutout(rec, url, image, flags, variance, wcs, mjd, wavelength, bits, ww)
 
     # -------------------------------------------------------------- building
     async def build_blink(
@@ -444,6 +456,71 @@ class SpherexArchive:
             "stretch_hint": {"vmin": vmin, "vmax": vmax},
             "units": "MJy/sr (zodiacal light and local sky subtracted)",
             "source": "NASA/IPAC IRSA - SPHEREx Level-2 spectral images (" + ", ".join(coverage["collections"]) + ")",
+            "is_simulated": False,
+            "elapsed_s": round(time.perf_counter() - t0, 2),
+        }
+
+    async def photometry(
+        self,
+        ra: float,
+        dec: float,
+        detectors: Optional[list[int]] = None,
+        max_frames: int = 60,
+        pmra: Optional[float] = None,
+        pmdec: Optional[float] = None,
+        ref_epoch: float = 2000.0,
+        aperture_px: float = 2.0,
+    ) -> dict[str, Any]:
+        """Aperture photometry of one sky position in many SPHEREx exposures.
+
+        Because SPHEREx uses linear variable filters, each exposure samples a different
+        wavelength at the source, so the result is both a spectrum (flux vs wavelength,
+        0.75-5 um) and a light curve (flux vs time, per detector).
+        """
+        t0 = time.perf_counter()
+        has_pm = pmra is not None and pmdec is not None and (abs(pmra) > 0 or abs(pmdec) > 0)
+        q_ra, q_dec = (ra, dec)
+        if has_pm:
+            q_ra, q_dec = propagate(ra, dec, pmra or 0.0, pmdec or 0.0, ref_epoch, mjd_to_year(61000.0))
+        frames = await self.query_frames(q_ra, q_dec)
+        if detectors:
+            frames = [f for f in frames if f.detector in detectors]
+        if not frames:
+            raise SpherexError("no_coverage", "No SPHEREx frames cover this position yet.")
+
+        mid = (frames[0].mjd + frames[-1].mjd) / 2.0
+        c_ra, c_dec = propagate(ra, dec, pmra or 0.0, pmdec or 0.0, ref_epoch, mjd_to_year(mid)) if has_pm else (ra, dec)
+        picked = select_for_photometry(frames, min(max_frames, MAX_DOWNLOADS * 2))
+
+        # A small cutout is enough; widen it for fast movers so the source stays inside.
+        span_yr = (frames[-1].mjd - frames[0].mjd) / 365.25
+        motion_deg = (math.hypot(pmra or 0.0, pmdec or 0.0) / 3.6e6) * span_yr if has_pm else 0.0
+        cut_size = 0.03 + 2 * motion_deg
+        async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=30.0), follow_redirects=True) as client:
+            cutouts = await asyncio.gather(*(self.fetch_cutout(client, r, c_ra, c_dec, cut_size) for r in picked))
+
+        points = []
+        for c in cutouts:
+            if c is None:
+                continue
+            t_ra, t_dec = (
+                propagate(ra, dec, pmra or 0.0, pmdec or 0.0, ref_epoch, mjd_to_year(c.mjd)) if has_pm else (ra, dec)
+            )
+            p = aperture_photometry(c, t_ra, t_dec, aperture_px)
+            if p is not None:
+                points.append(p)
+        if not points:
+            raise SpherexError("no_data", "Frames were found but photometry failed at this position.")
+        points.sort(key=lambda p: p["mjd"])
+        good = [p for p in points if not p["flagged"]]
+        return {
+            "position": {"ra": ra, "dec": dec, "pmra": pmra, "pmdec": pmdec, "ref_epoch": ref_epoch},
+            "aperture_arcsec": round(aperture_px * NATIVE_PIXSCALE_ARCSEC, 2),
+            "n_points": len(points),
+            "n_good": len(good),
+            "points": points,
+            "units": "mJy (aperture flux, local background subtracted, no aperture correction)",
+            "source": "NASA/IPAC IRSA - SPHEREx Level-2 spectral images",
             "is_simulated": False,
             "elapsed_s": round(time.perf_counter() - t0, 2),
         }
@@ -559,6 +636,79 @@ def reproject_cutout(c: Cutout, world_ra: np.ndarray, world_dec: np.ndarray):
                 if frac > 0:
                     stats[name] = frac
     return r_img, r_var, mask, stats
+
+
+def aperture_photometry(c: Cutout, ra: float, dec: float, r_ap: float = 2.0) -> Optional[dict[str, Any]]:
+    """Circular-aperture flux at (ra, dec) with an annulus background (r_ap+2 .. r_ap+5 px)."""
+    try:
+        x, y = c.wcs.world_to_pixel_values(ra, dec)
+    except Exception:
+        return None
+    x, y = float(x), float(y)
+    ny, nx = c.image.shape
+    r_out = r_ap + 5.0
+    if not (r_ap <= x <= nx - 1 - r_ap and r_ap <= y <= ny - 1 - r_ap):
+        return None
+    yy, xx = np.mgrid[0:ny, 0:nx]
+    rr = np.hypot(xx - x, yy - y)
+    ap = rr <= r_ap
+    ann = (rr >= r_ap + 2.0) & (rr <= r_out)
+
+    bad_bits = 0
+    for name in MASKED_FLAG_NAMES:
+        bit = c.flag_bits.get(name)
+        if bit is not None:
+            bad_bits |= 1 << bit
+    bad = ((c.flags & bad_bits) != 0) | ~np.isfinite(c.image) | ~np.isfinite(c.variance)
+    sat_bit = c.flag_bits.get("OVERFLOW")
+    saturated = bool(sat_bit is not None and ((c.flags[ap] >> sat_bit) & 1).any())
+
+    ann_ok = ann & ~bad
+    if ann_ok.sum() < 5:
+        return None
+    bkg = float(np.median(c.image[ann_ok]))
+    ap_ok = ap & ~bad
+    bad_frac = float(1.0 - ap_ok.sum() / max(ap.sum(), 1))
+
+    # Pixel solid angle from the local WCS (deg^2 -> sr); MJy/sr * sr -> MJy -> mJy.
+    try:
+        scales = c.wcs.proj_plane_pixel_scales()
+        omega_sr = float(scales[0].to_value("deg") * scales[1].to_value("deg")) * (math.pi / 180.0) ** 2
+    except Exception:
+        omega_sr = (NATIVE_PIXSCALE_ARCSEC / 206264.806) ** 2
+    to_mjy = omega_sr * 1e9
+    if ap_ok.any():
+        flux = float((c.image[ap_ok] - bkg).sum()) * to_mjy * (ap.sum() / ap_ok.sum())
+        err = float(math.sqrt(max(float(c.variance[ap_ok].sum()), 0.0))) * to_mjy * (ap.sum() / ap_ok.sum())
+    else:
+        flux, err = float("nan"), float("nan")
+
+    lam = c.wavelength_at(x, y)
+    flagged = bool(bad_frac > 0.3 or saturated or not math.isfinite(flux) or lam is None)
+    return {
+        "mjd": c.mjd,
+        "date": mjd_to_iso(c.mjd),
+        "detector": c.record.detector,
+        "obs_id": c.record.obs_id,
+        "wavelength_um": round(lam, 4) if lam else None,
+        "flux_mjy": round(float(flux), 4) if math.isfinite(flux) else None,
+        "err_mjy": round(float(err), 4) if math.isfinite(err) else None,
+        "saturated": saturated,
+        "masked_fraction": round(bad_frac, 3),
+        "flagged": flagged,
+    }
+
+
+def select_for_photometry(frames: list[FrameRecord], n: int) -> list[FrameRecord]:
+    """Spread the download budget evenly over detectors (wavelength) and time."""
+    by_det: dict[int, list[FrameRecord]] = {}
+    for f in frames:
+        by_det.setdefault(f.detector, []).append(f)
+    per = max(1, n // max(1, len(by_det)))
+    out: list[FrameRecord] = []
+    for det in sorted(by_det):
+        out.extend(_spread(sorted(by_det[det], key=lambda r: r.mjd), per))
+    return out
 
 
 def fill_saturated_holes(data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
