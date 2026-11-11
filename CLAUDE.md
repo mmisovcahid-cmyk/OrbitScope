@@ -47,6 +47,25 @@ This is the only part of the app that uses real mission data; everything else st
 - The IRSA cutout service sometimes returns 503; `fetch_cutout` retries with backoff.
 - `/api/v1/spherex/photometry` measures one position in up to 96 exposures, spread over detectors and time (`select_for_photometry`). Each point's wavelength comes from that pixel's LVF wavelength via the `WCS-WAVE` table (`Cutout.wavelength_at`), so the same result gives both a spectrum and a light curve. Saturated (OVERFLOW) or mostly masked apertures are returned with `flagged: true` rather than dropped.
 - `/api/v1/spherex/overlay` (`app/services/catalog_overlay.py`) serves Gaia DR3 (ESA TAP, epoch 2016.0) and CatWISE2020 (IRSA TAP, epoch 2015.4, pm converted to mas/yr). CatWISE rows with D/P/H/O artifact flags are dropped, and motions of blended (nb>1) or low-S/N detections are zeroed. The browser propagates each marker to the date of the frame being shown.
+## Real-data moving-object search (`/detection`)
+
+- `app/services/detection_service.py`: `run_detection()` gets frames from `build_blink(..., keep_arrays=True)` and runs `app/pipeline/moving_objects.py`. It then matches the results against reference catalogs and saves them through `candidate_store.py` (SQLite at `backend/data/orbitscope.db`, gitignored). Endpoints: `/api/v1/spherex/detect`, `/candidates` (GET), `/candidates/{id}` (PATCH review: unreviewed/real/artifact/unsure), `/candidates/{id}/export` (CSV).
+- **Asteroids** (`search=asteroids`, `mode="pass"`):
+  - Input: individual exposures of one survey pass. `select_sequences` keeps SPHEREx's ~4-exposure / ~7-minute visits intact. Paired detectors D1/D4, D2/D5 and D3/D6 expose simultaneously.
+  - Detection: median template per detector, then residual detection with the noise model `sigma^2 + (0.15*template)^2` (LVF brightness changes).
+  - Linking: within a visit only (`VISIT_WINDOW_DAYS`), then cross-visit joining guarded by `MAX_JOIN_RMS_PX`.
+  - Rejection: noisy frames are skipped (`NOISY_FRAME_FACTOR`). `recurrence()` and the "parked" rule turn fixed-position residuals (persistence, variables) into `stationary_transient`.
+  - Known objects come from JPL SB Ident (`app/services/small_bodies.py`): one query per visit cluster, linear extrapolation with the returned rates, cached on disk. A known object only counts as recovered if the track is a genuine mover, or position plus rate agree.
+- **Proper motion** (`search=proper_motion`, per-pass stacks):
+  - Astrometric, not difference-based: `search_proper_motion` centroids isolated, unsaturated sources in every epoch (`refine_centroid`), removes the frame-wide registration offset, and derives the noise floor from the static stars. Reports shifts above 5σ, or brightness ratios ≥1.6 as variables.
+  - Catalog matching (Gaia/CatWISE) requires the proper-motion vectors to agree, and widens the radius for fast catalog movers.
+  - Saturated stars (Barnard's Star, RW Aur, R Dra) are excluded by design.
+- Validated on real data:
+  - 626 Notburga (V=13.5) recovered: 8 detections, 1.6″ from JPL, 58″/h.
+  - ε Indi B: 4.1″/yr at PA 123°, Gaia match.
+  - WISE 0855−0714: 7.9″/yr at PA 280°, CatWISE match.
+  - Static fields produce no `unknown_mover`.
+  - Synthetic tests are in `tests/test_moving_objects.py`.
 - The uvicorn `--reload` watcher restarts the backend on any change under `backend/` (tests included), which drops in-flight long requests. Expect this while editing during a long blink or photometry call.
 
 ## Backend architecture

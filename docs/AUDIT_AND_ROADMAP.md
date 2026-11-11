@@ -9,7 +9,7 @@
 | **0 — Təmizlik** | ✅ Detection route səhvi düzəldildi və `pipeline_manager` singleton-u əlavə olundu, real pipeline artıq işləyir (sintetik kadrlarda, `[SIMULATED]` etiketi ilə). Port 5173-ə keçirildi, code-splitting əlavə olundu, naviqasiya i18n-ə keçirildi, işləməyən tema düyməsi silindi, səhifələrə padding və mobil naviqasiya əlavə olundu. ⏳ ESLint quraşdırılmayıb. |
 | **1 — Real SPHEREx blink MVP** | ✅ Hazırdır, 5 sınaq hədəfində yoxlanıldı. ⚠️ WISE 0855 D6-da çox zəifdir: hər keçidə 4 ekspozisiya toplandıqda gözlə görmək çətindir. |
 | 2 — Elmi alətlər | ✅ Fərq, Hərəkət rəngi, Cəm (stack) rejimləri. ✅ Gaia DR3 və CatWISE2020 overlay-i: markerlər proper motion ilə hər kadrın tarixinə köçürülür, ulduz ölçüsü süzgəci var, CatWISE artefaktları süzülür. ✅ Hədəf və ya kliklənmiş nöqtə üçün aperture fotometriyası: hər pikselin LVF dalğa uzunluğu ilə 0.75–5 µm spektr və işıq əyrisi. ε Indi B-də real T-cırtdan spektri alındı (H₂O 1.4 µm, CH₄, CO 4.6 µm udulmaları görünür). ⚠️ Çox parlaq ulduzlar (R Dra, Barnard) SPHEREx-də doyur, onların ölçmələri "doymuş" kimi işarələnir. ⏳ Aladin Lite (CDS servisləri hazırda əlçatmazdır). |
-| 3 — Real məlumatda aşkarlama | ⏳ |
+| 3 — Real məlumatda aşkarlama | ✅ Detection səhifəsi artıq real SPHEREx məlumatı ilə işləyir (ətraflı nəticələr aşağıda, bölmə 6). |
 | 4 — İstehsal | Qismən: retry, disk keşi, yeni buraxılışların avtomatik daxil olması. ⏳ Fon tapşırıqları və irəliləyiş, Docker. |
 
 ## 1. Çağırışın tələbi (qısa)
@@ -107,3 +107,32 @@ Planet X səhifəsi, ML anomaliya skorlaması və mövcud Dashboard qalır, amma
 | Kiçik yerdəyişmə (≤2 piksel/il) | Coadd ilə S/N artımı, fərq şəkli, Gaia proqnoz markerləri, böyüdülmüş (upsampled) görünüş |
 | Parlaq ulduzlarda doyma (Barnard) | `FLAGS` maskası, uzun dalğa detektorlarının (D5–D6) seçimi |
 | LVF: kadrlar arasında dalğa uzunluğu fərqi | Default olaraq eyni detektorun kadrlarını müqayisə etmək; λ hər kadrda göstərilir |
+
+## 6. Faza 3 — Real məlumatda hərəkətli obyekt aşkarlanması (nəticələr)
+
+### Necə işləyir
+- **Asteroidlər və kometlər.** Bir müşahidə keçidinin ayrı ekspozisiyalarından istifadə olunur.
+  - SPHEREx eyni sahəni ~2 dəqiqə fasiləli 4 ekspozisiyalıq ziyarətlərlə çəkir. D1/D4, D2/D5 və D3/D6 detektorları eyni anda çəkir.
+  - Hər detektor üçün median "sabit səma" şablonu qurulur və hər kadrdan çıxılır.
+  - Qalıqlar yalnız bir ziyarət daxilində birləşdirilir, sonra ziyarətlər arasında xətti hərəkət yoxlanılır.
+  - Əlavə süzgəclər: səs-küylü kadrlar atılır, eyni nöqtədə təkrarlanan qalıqlar (persistence, dəyişkən mənbələr) "stasionar keçici" kimi rədd edilir.
+  - Hər trek NASA/JPL SB Ident ilə müqayisə olunur.
+- **Xüsusi hərəkət (ulduzlar, qəhvəyi cırtdanlar).** Hər keçid üçün dərin toplanmış şəkil istifadə olunur.
+  - Fərq şəkli yox, **astrometriya** tətbiq edilir: hər ulduzun mərkəzi hər epoxada ölçülür, kadr üzrə qeydiyyat xətası çıxılır, əhəmiyyət sabit ulduzlardan ölçülən səs-küyə görə hesablanır.
+  - Gaia DR3 və CatWISE2020 ilə müqayisə yalnız PM vektoru uyğun gələndə qəbul olunur.
+- **Namizədlər** SQLite-da saxlanılır. İstifadəçi onları "Real / Artefakt / Əmin deyiləm" kimi qiymətləndirə və CSV ilə ixrac edə bilər.
+
+### Real məlumatda yoxlama
+| Test | Nəticə |
+|---|---|
+| 626 Notburga (V=13.5), 2025-06/07 keçidi | ✅ Tapıldı: 8 aşkarlama (D1+D4), trek RMS 0.11 px, JPL proqnozundan **1.6″**, ölçülən sürət 58″/saat |
+| Ekliptika sahəsi 00h40m +04° (V≤18: 2 obyekt) | 0 saxta "yeni hərəkətli". Əvvəlcə uyğunlaşan qalıq stasionarlıq yoxlamasında rədd edildi |
+| ε Indi B (PM) | ✅ 4.1″/il, PA 123° (həqiqi 4.7″/il, 122°), 15σ, Gaia DR3 uyğunluğu |
+| WISE 0855−0714 (PM) | ✅ 7.9″/il, PA 280° (həqiqi 8.2″/il, 275°), 6σ, CatWISE uyğunluğu |
+| Barnard, RW Aur, R Dra | ⚠️ SPHEREx-də doyurlar, astrometriya/fotometriyadan qəsdən çıxarılır (Blink və Hərəkət rəngi rejimlərində görünürlər) |
+
+### Məhdudiyyətlər
+- Tək ekspozisiya həssaslığı V≈17–18 ətrafındadır, daha zəif asteroidlər adətən tapılmır.
+- Dworetsky (V=17.2) tapılmadı.
+- PM üçün 0.25 px-dən (≈1.5″) kiçik ümumi yerdəyişmə ölçülə bilmir.
+- Namizədlər kəşf deyil: əlavə müşahidə və MPC-yə bildiriş lazımdır.

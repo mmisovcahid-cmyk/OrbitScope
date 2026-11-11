@@ -422,7 +422,8 @@
       "modeFrames": "Ayrı-ayrı ekspozisiyalar",
       "perEpoch": "Hər keçiddə toplanan ekspozisiya",
       "maxFrames": "Maks. ekspozisiya",
-      "tryTargets": "Sınaq hədəfləri:"
+      "tryTargets": "Sınaq hədəfləri:",
+      "modePass": "Bir müşahidə keçidinin ayrı ekspozisiyaları"
     },
     "errors": {
       "empty": "Obyekt adı və ya koordinat daxil edin.",
@@ -523,5 +524,96 @@
       "flagged": "aperturada bayraqlı piksellər",
       "lvfNote": "rəng = detektor"
     }
+  },
+  "detect": {
+    "title": "Hərəkətli Obyekt Axtarışı (real SPHEREx məlumatı)",
+    "subtitle": "Real SPHEREx şəkillərində hərəkət edən obyektləri axtarın: bir müşahidə keçidi daxilində asteroid və kometlər, və ya keçidlər arasında böyük xüsusi hərəkəti olan yaxın ulduzlar və qəhvəyi cırtdanlar. Hər aşkarlama məlum obyektlərlə (JPL kiçik cisimlər bazası, Gaia DR3, CatWISE2020) müqayisə olunur və siz onu qiymətləndirə bilərsiniz.",
+    "search": {
+      "asteroids": "Asteroidlər və kometlər",
+      "proper_motion": "Xüsusi hərəkət (ulduzlar, qəhvəyi cırtdanlar)"
+    },
+    "searchHelp": {
+      "asteroids": "Bir müşahidə keçidinin ayrı ekspozisiyalarından istifadə edir. Yalnız bir ziyarətdə görünən obyektlər sabit səmanı çıxmaqla tapılır.",
+      "proper_motion": "Hər keçid üçün bir dərin toplanmış şəkil (≈6 ay ara ilə). Keçidlər arasında yerini dəyişən mənbələri tapır."
+    },
+    "run": "Axtar",
+    "pass": "Müşahidə keçidi",
+    "passAuto": "Avtomatik (ən çox ekspozisiya)",
+    "maxFrames": "Yüklənəcək ekspozisiya",
+    "threshold": "Aşkarlama həddi",
+    "loading": "Ekspozisiyalar yüklənir və axtarılır… {{seconds}} san",
+    "loadingHint": "Yeni sahə 1–3 dəqiqə çəkir (IRSA yükləməsi + JPL yoxlaması). Təkrar axtarış xeyli sürətlidir.",
+    "howTitle": "Axtarış necə işləyir",
+    "how1": "Sahə (obyekt adı və ya koordinat) və axtarış növünü seçin, ya da nümunəni sınayın.",
+    "how2": "OrbitScope real SPHEREx ekspozisiyalarını yükləyir, üst-üstə düzür və hər detektor üçün sabit səma şablonu qurur.",
+    "how3": "Şablonda olmayan qalıq mənbələr ekspozisiyalar arasında birləşdirilir və hərəkəti hesablanır.",
+    "how4": "Aşkarlamalar məlum asteroid/kometlərlə (JPL) və ya ulduzlarla (Gaia, CatWISE) müqayisə olunur. Uyğunluğu olmayan hərəkətli mənbələr yeni namizədlərdir — onları qiymətləndirin.",
+    "disclaimer": "Namizədlər kəşf deyil. Real obyektlər əlavə müşahidələrlə təsdiqlənməli və müvafiq qurumlara (məs. Minor Planet Center) bildirilməlidir.",
+    "stats": {
+      "frames": "Axtarılan kadrlar",
+      "detections": "Qalıq aşkarlamalar",
+      "single": "Tək kadrlıq (rədd edildi)",
+      "candidates": "Namizədlər",
+      "knownRecovered": "Tapılan məlum obyektlər",
+      "brightRecovered": "Tapılan V≤18 məlum obyektlər",
+      "pm": "Xüsusi hərəkətli mənbələr",
+      "variable": "Dəyişkən mənbələr",
+      "noisy": "Atılmış səs-küylü kadrlar",
+      "measured": "Ölçülən mənbələr",
+      "astrometry": "Astrometrik dəqiqlik"
+    },
+    "showKnown": "Məlum asteroid/kometlər (JPL)",
+    "showWeak": "Zəif / qalıq aşkarlamaları göstər",
+    "candidates": "Namizədlər",
+    "none": "Bu sahədə həddən yuxarı namizəd yoxdur.",
+    "col": {
+      "class": "Sinif",
+      "match": "Uyğunluq",
+      "n": "Aşk.",
+      "rate": "Sürət",
+      "review": "Qiymət"
+    },
+    "score": "bal",
+    "fitRms": "Trek uyğunlaşma RMS",
+    "visits": "Birləşdirilmiş ziyarətlər",
+    "known": "Sahədəki məlum obyektlər",
+    "noKnown": "JPL bu vaxtlarda bu sahədə məlum asteroid və ya kometə rast gəlmir (V ≤ 21).",
+    "knownNote": "Mövqelər NASA/JPL SB Ident-dəndir (geosentrik). ✓ = axtarış tərəfindən tapılıb. V≈18-dən zəif obyektlər adətən SPHEREx-in tək ekspozisiya həssaslığından aşağıdır.",
+    "saved": "Saxlanmış namizədlər",
+    "noSaved": "Hələ saxlanmış namizəd yoxdur.",
+    "all": "Hamısı",
+    "review": {
+      "real": "Real",
+      "artifact": "Artefakt",
+      "unsure": "Əmin deyiləm",
+      "unreviewed": "Baxılmayıb"
+    },
+    "classes": {
+      "unknown_mover": "Yeni hərəkətli?",
+      "known_sso": "Məlum asteroid",
+      "moving_object": "Hərəkətli",
+      "pm_candidate": "Yeni XH mənbəyi?",
+      "known_pm_star": "Məlum XH ulduzu",
+      "pm_unconfirmed": "Zəif XH uyğunluğu",
+      "variable": "Dəyişkən",
+      "variable_or_residual": "Ulduz qalığı",
+      "low_confidence": "Aşağı etibar",
+      "stationary_transient": "Stasionar keçici"
+    },
+    "explain": {
+      "unknown_mover": "Bir ziyarətin bir neçə ekspozisiyasında görünən, sabit səmada olmayan və heç bir məlum asteroid/kometə uyğun gəlməyən mənbə. Real kimi işarələməzdən əvvəl Blink-də yoxlayın.",
+      "known_sso": "JPL-in məlum asteroid və ya kometinin proqnoz mövqeyinə uyğun gəlir.",
+      "pm_candidate": "Keçidlər arasında yerini dəyişib, lakin burada uyğun hərəkətli Gaia/CatWISE ulduzu tapılmadı. Yeni yaxın qəhvəyi cırtdan ola bilər — və ya artefakt.",
+      "known_pm_star": "Keçidlər arasında yerini dəyişib və əhəmiyyətli xüsusi hərəkəti olan məlum ulduza uyğundur.",
+      "pm_unconfirmed": "Keçidlər arasında yerini dəyişib, lakin uyğun kataloq ulduzunun xüsusi hərəkəti azdır — ehtimal ki, qalıqdır.",
+      "variable": "Sabit mövqedə parlaqlıq dəyişib: dəyişkən ulduz və ya artefakt.",
+      "variable_or_residual": "Parlaq ulduzun üzərində qalıq; adətən hərəkət deyil, SPHEREx-in dalğa uzunluğundan asılı parlaqlığından yaranır.",
+      "low_confidence": "Aşkarlamalar düz xətli hərəkətə yaxşı uyğun gəlmir.",
+      "stationary_transient": "Yalnız bəzi ekspozisiyalarda görünür, lakin SABİT mövqedədir (digər ziyarətlərdə təkrarlanır və ya ziyarətlər arasında hərəkət etməyib). Günəş sistemi obyektləri həmişə hərəkət edir, buna görə bu dəyişkən mənbə, detektor qalıq izi (persistence) və ya digər artefaktdır."
+    },
+    "recurrence": "Eyni nöqtədə təkrarlanma",
+    "measuredPm": "Ölçülən xüsusi hərəkət",
+    "significance": "Yerdəyişmənin əhəmiyyəti",
+    "fluxRatio": "Parlaqlıq dəyişməsi (maks/min)"
   }
 }

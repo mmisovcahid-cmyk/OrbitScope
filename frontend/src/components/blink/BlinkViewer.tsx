@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pause, Play, SkipBack, SkipForward, Crosshair, Layers } from 'lucide-react';
 import {
-  BlinkResult, CatalogOverlay, ColorMapKind, DecodedFrame, OVERLAY_COLORS, StretchKind, buildLut, decodeFrames,
+  Annotation, AnnotationPath, BlinkResult, CatalogOverlay, ColorMapKind, DecodedFrame, OVERLAY_COLORS, StretchKind, buildLut, decodeFrames,
   formatDec, formatRA, mjdToYear, percentiles, pixelToWorld, propagate, stretchValue, worldToPixel,
 } from '../../lib/spherex';
 
@@ -16,6 +16,11 @@ interface Props {
   overlays?: CatalogOverlay[];
   pick?: [number, number] | null;
   onPick?: (ra: number, dec: number) => void;
+  /** Per-frame markers in grid pixels (x right, y up). frame=null shows on every frame. */
+  annotations?: Annotation[];
+  paths?: AnnotationPath[];
+  /** Set to jump to a frame from outside (change `nonce` to re-trigger). */
+  jumpTo?: { frame: number; nonce: number } | null;
 }
 
 interface OverlayMark { x: number; y: number; color: string; fast: boolean; label: string; info: string }
@@ -100,6 +105,7 @@ function diffLimit(cur: DecodedFrame, ref: DecodedFrame): number {
 
 export default function BlinkViewer({
   result, compact = false, autoplay = true, onFrameChange, overlays = [], pick = null, onPick,
+  annotations = [], paths = [], jumpTo = null,
 }: Props) {
   const { t } = useTranslation();
   const frames = useMemo(() => decodeFrames(result), [result]);
@@ -124,6 +130,12 @@ export default function BlinkViewer({
 
   useEffect(() => { setIdx(0); setRefIdx(0); setPlaying(autoplay && frames.length > 1); }, [frames, autoplay]);
   useEffect(() => { onFrameChange?.(idx); }, [idx, onFrameChange]);
+  useEffect(() => {
+    if (!jumpTo || jumpTo.frame < 0 || jumpTo.frame >= frames.length) return;
+    setPlaying(false);
+    setMode((m) => (m === 'stack' ? 'blink' : m));
+    setIdx(jumpTo.frame);
+  }, [jumpTo, frames.length]);
 
   const [lo, hi] = useMemo(
     () => percentiles(frames.map((f) => f.values), [lowPct, highPct]),
@@ -278,6 +290,32 @@ export default function BlinkViewer({
               opacity={m.fast ? 1 : 0.75} strokeDasharray={m.fast ? undefined : `${w / 150} ${w / 300}`}
             />
           ))}
+          {paths.map((p, i) => (
+            <polyline
+              key={`p${i}`} fill="none" stroke={p.color} strokeWidth={p.width ?? Math.max(0.2, w / 300)}
+              strokeDasharray={p.dashed ? `${w / 80} ${w / 120}` : undefined} opacity={0.85}
+              points={p.points.map(([x, y]) => `${x + 0.5},${h - y - 0.5}`).join(' ')}
+            />
+          ))}
+          {annotations.filter((a) => a.frame === null || (mode !== 'stack' && a.frame === idx)).map((a, i) => {
+            const cx = a.x + 0.5, cy = h - a.y - 0.5;
+            const r = (a.size ?? 1) * Math.max(1.5, w / 45) * (a.emphasis ? 1.5 : 1);
+            const sw = Math.max(0.2, w / (a.emphasis ? 160 : 260));
+            return (
+              <g key={`a${i}`} stroke={a.color} strokeWidth={sw} fill="none">
+                {a.shape === 'circle' && <circle cx={cx} cy={cy} r={r} />}
+                {a.shape === 'square' && <rect x={cx - r} y={cy - r} width={2 * r} height={2 * r} />}
+                {a.shape === 'diamond' && <polygon points={`${cx},${cy - r} ${cx + r},${cy} ${cx},${cy + r} ${cx - r},${cy}`} />}
+                {a.label && (
+                  // Catalog (diamond) labels go below-right, detection labels above-right, so they never overlap.
+                  <text x={cx + r * 1.15} y={a.shape === 'diamond' ? cy + r * 2.2 : cy - r * 1.05} fill={a.color} stroke="none"
+                    fontSize={Math.max(1.6, w / 32)}>
+                    {a.label}
+                  </text>
+                )}
+              </g>
+            );
+          })}
           {pickPx && (
             <g stroke="#e879f9" strokeWidth={Math.max(0.25, w / 260)}>
               <line x1={pickPx[0] + 0.5 - markR * 0.7} y1={h - pickPx[1] - 0.5 - markR * 0.7} x2={pickPx[0] + 0.5 + markR * 0.7} y2={h - pickPx[1] - 0.5 + markR * 0.7} />

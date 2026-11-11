@@ -57,6 +57,13 @@ export const spherexService = {
     api.get('/api/v1/spherex/overlay', { params: { ra, dec, fov, catalog, locale: locale() }, timeout: 120000 }),
   photometry: (params: Record<string, string | number>, signal?: AbortSignal) =>
     api.get('/api/v1/spherex/photometry', { params: { ...params, locale: locale() }, timeout: 600000, signal }),
+  detect: (params: Record<string, string | number>, signal?: AbortSignal) =>
+    api.get('/api/v1/spherex/detect', { params: { ...params, locale: locale() }, timeout: 600000, signal }),
+  candidates: (status?: string) =>
+    api.get('/api/v1/spherex/candidates', { params: { status: status || undefined, limit: 200 } }),
+  review: (id: string, status: string, note?: string) =>
+    api.patch(`/api/v1/spherex/candidates/${encodeURIComponent(id)}`, { status, note }, { params: { locale: locale() } }),
+  exportUrl: (id: string) => `${api.defaults.baseURL}/api/v1/spherex/candidates/${encodeURIComponent(id)}/export`,
   gifUrl: (params: Record<string, string | number>) => {
     const qs = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString();
     return `${api.defaults.baseURL}/api/v1/spherex/blink.gif?${qs}`;

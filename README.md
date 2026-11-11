@@ -120,6 +120,16 @@ and **Motion colour** (older frame red, newer frame cyan). Other features: per-d
 
 The first request for a new field downloads cutouts (30–90 s); after that it is served from `backend/cache/spherex/`.
 
+## 🛰️ Moving-object search on real data (`/detection`)
+
+- **Asteroids & comets:** uses the individual exposures of one survey pass. A static-sky template per detector is subtracted, residuals are linked within SPHEREx's ~7-minute visits, and fixed-position transients are rejected. Every track is checked against NASA/JPL SB Ident.
+- **Proper motion:** uses one stack per survey pass. Sources are measured astrometrically and checked against Gaia DR3 and CatWISE2020.
+- **Validated on real SPHEREx data:**
+  - 626 Notburga recovered (1.6″ from JPL).
+  - ε Indi B and WISE 0855−0714 recovered with the correct speed and direction.
+- Candidates are stored in `backend/data/orbitscope.db`. They can be reviewed (real / artifact / unsure) and exported as CSV.
+- API: `GET /api/v1/spherex/detect?target=…&search=asteroids|proper_motion&fov=0.3&detector=1,4&pass_index=0`
+
 ## 🔬 Scientific Pipeline
 
 OrbitScope implements a modular astronomical detection pipeline:

@@ -38,7 +38,8 @@ export interface BlinkResult {
     total_frames: number; by_detector: Record<string, number>; collections: string[]; n_epochs: number;
     epochs: { start: string; end: string; n_frames: number }[]; date_min: string | null; date_max: string | null;
   };
-  mode: 'epoch' | 'frames';
+  mode: 'epoch' | 'frames' | 'pass';
+  pass_index?: number | null;
   detectors: number[];
   frames: BlinkFrame[];
   stretch_hint: { vmin: number; vmax: number };
@@ -60,9 +61,10 @@ export interface BlinkQuery {
   dec?: number;
   fov: number;
   detector: string;
-  mode: 'epoch' | 'frames';
+  mode: 'epoch' | 'frames' | 'pass';
   per_epoch: number;
   max_frames: number;
+  pass_index?: number;
 }
 
 export const DEFAULT_QUERY: BlinkQuery = { fov: 0.1, detector: '3', mode: 'epoch', per_epoch: 4, max_frames: 16 };
@@ -207,6 +209,67 @@ export interface PhotometryResult {
   aperture_arcsec: number; n_points: number; n_good: number; points: PhotPoint[]; units: string; elapsed_s: number;
 }
 
+// ---------------------------------------------------------------- moving-object search
+export type SearchKind = 'asteroids' | 'proper_motion';
+export type ReviewStatus = 'unreviewed' | 'real' | 'artifact' | 'unsure';
+
+export interface CandidateDetection {
+  frame: number; mjd: number; date: string; x: number; y: number; ra: number; dec: number;
+  z: number; flux: number; detectors: number[]; on_star: boolean;
+}
+
+export interface Candidate {
+  id: string; search: SearchKind; class: string; score: number; ra: number; dec: number; x: number; y: number;
+  t0_mjd: number; t0_date: string; n_detections: number; n_detectors: number; visits: number; rms_px: number;
+  rate_px_per_day: [number, number]; rate_arcsec_per_hour: number; rate_arcsec_per_year: number;
+  position_angle_deg: number | null; mean_z: number; recurrence?: number | null; detections: CandidateDetection[];
+  metrics?: Record<string, number | string | null>; measured_pm_mas_per_year?: [number, number];
+  match: null | {
+    type: 'known_sso' | 'star'; name: string; kind?: string; vmag?: number | null; catalog?: string; mag?: number | null;
+    pm_mas_per_year?: number; sep_arcsec: number; predicted_rate_arcsec_per_hour?: number;
+  };
+  status?: ReviewStatus; note?: string; run_id?: string; created_at?: string;
+}
+
+export interface KnownObject {
+  name: string; kind: string; vmag: number | null; rate_ra: number; rate_dec: number;
+  positions: { frame: number; x: number; y: number; ra: number; dec: number }[];
+  in_field: boolean; recovered_by: string | null;
+}
+
+export interface DetectionResult {
+  run_id: string; search: SearchKind; params: Record<string, unknown>;
+  summary: {
+    frames: number; searched_frames: number; n_detections: number; n_single_frame: number; n_candidates: number;
+    by_class: Record<string, number>; known_in_field: number; known_recovered: number;
+    known_bright_in_field: number; known_bright_recovered: number; pass_index: number | null;
+    z_thresh: number; notes: string[]; elapsed_s: number;
+    noisy_frames?: number; sources_measured?: number | null; astrometric_floor_px?: number | null;
+  };
+  candidates: Candidate[]; known_objects: KnownObject[]; blink: BlinkResult; is_simulated: boolean;
+}
+
+export interface Annotation {
+  frame: number | null; // null = every frame
+  x: number; y: number; color: string; shape: 'circle' | 'diamond' | 'square';
+  size?: number; emphasis?: boolean; label?: string;
+}
+
+export interface AnnotationPath { points: [number, number][]; color: string; dashed?: boolean; width?: number }
+
+export const CLASS_COLORS: Record<string, string> = {
+  unknown_mover: '#f472b6',
+  pm_candidate: '#f472b6',
+  known_sso: '#22d3ee',
+  known_pm_star: '#facc15',
+  moving_object: '#22d3ee',
+  pm_unconfirmed: '#fbbf24',
+  variable: '#a78bfa',
+  stationary_transient: '#c084fc',
+  variable_or_residual: '#94a3b8',
+  low_confidence: '#64748b',
+};
+
 export const OVERLAY_COLORS: Record<string, string> = { gaia: '#facc15', catwise: '#4ade80' };
 export const DETECTOR_COLORS = ['#a78bfa', '#60a5fa', '#22d3ee', '#4ade80', '#facc15', '#f87171'];
 
@@ -246,7 +309,8 @@ export function queryFromParams(p: URLSearchParams): BlinkQuery | null {
     dec: hasCoords ? dec : undefined,
     fov: num('fov', DEFAULT_QUERY.fov, 0.02, 0.5),
     detector: /^(all|[1-6](,[1-6])*)$/.test(det) ? det : DEFAULT_QUERY.detector,
-    mode: p.get('mode') === 'frames' ? 'frames' : 'epoch',
+    mode: p.get('mode') === 'frames' ? 'frames' : p.get('mode') === 'pass' ? 'pass' : 'epoch',
+    pass_index: p.get('pass') !== null && Number.isInteger(Number(p.get('pass'))) ? Math.max(0, Number(p.get('pass'))) : undefined,
     per_epoch: Math.round(num('per', DEFAULT_QUERY.per_epoch, 1, 12)),
     max_frames: Math.round(num('max', DEFAULT_QUERY.max_frames, 2, 48)),
   };
@@ -261,6 +325,7 @@ export function queryToParams(q: BlinkQuery): Record<string, string> {
   out.mode = q.mode;
   if (q.mode === 'epoch') out.per = String(q.per_epoch);
   else out.max = String(q.max_frames);
+  if (q.mode === 'pass' && q.pass_index !== undefined) out.pass = String(q.pass_index);
   return out;
 }
 
@@ -279,6 +344,7 @@ export function apiParams(q: BlinkQuery): Record<string, string | number> {
   const out: Record<string, string | number> = {
     fov: q.fov, detector: q.detector, mode: q.mode, per_epoch: q.per_epoch, max_frames: q.max_frames,
   };
+  if (q.mode === 'pass' && q.pass_index !== undefined) out.pass_index = q.pass_index;
   if (q.ra !== undefined && q.dec !== undefined) { out.ra = q.ra; out.dec = q.dec; }
   if (q.target) out.target = q.target;
   return out;

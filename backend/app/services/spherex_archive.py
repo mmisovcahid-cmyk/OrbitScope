@@ -390,7 +390,17 @@ class SpherexArchive:
         pmra: Optional[float] = None,
         pmdec: Optional[float] = None,
         ref_epoch: float = 2000.0,
+        pass_index: Optional[int] = None,
+        keep_arrays: bool = False,
     ) -> dict[str, Any]:
+        """Build co-registered frames.
+
+        mode="epoch":  one inverse-variance stack per survey pass (per_epoch exposures each)
+        mode="frames": individual exposures spread over the whole time range
+        mode="pass":   individual exposures from ONE survey pass (pass_index), keeping whole
+                       short exposure sequences together - the right input for asteroid searches
+        keep_arrays:   also return raw float arrays / masks under "_arrays" / "_masks" (internal use)
+        """
         t0 = time.perf_counter()
         has_pm = pmra is not None and pmdec is not None and (abs(pmra) > 0 or abs(pmdec) > 0)
 
@@ -414,7 +424,15 @@ class SpherexArchive:
         if not frames:
             raise SpherexError("no_detector_coverage", "No frames for the selected detector(s).")
 
-        groups = select_groups(frames, mode, per_epoch, max_frames)
+        if mode == "pass":
+            passes = group_epochs(frames)
+            if pass_index is None:
+                pass_index = max(range(len(passes)), key=lambda i: len(passes[i]))
+            if not 0 <= pass_index < len(passes):
+                raise SpherexError("bad_pass", f"Pass index must be 0..{len(passes) - 1}.")
+            groups = [[f] for f in select_sequences(passes[pass_index], min(max_frames, MAX_DOWNLOADS))]
+        else:
+            groups = select_groups(frames, mode, per_epoch, max_frames)
         size_px = int(round(fov_deg * 3600.0 / NATIVE_PIXSCALE_ARCSEC))
         size_px = max(15, size_px + (1 - size_px % 2))
         out_wcs = make_target_wcs(c_ra, c_dec, size_px, NATIVE_PIXSCALE_ARCSEC)
@@ -436,10 +454,11 @@ class SpherexArchive:
             raise SpherexError("no_data", "Frames were found but contained no valid pixels at this position.")
 
         arrays = [f.pop("_arr") for f in out_frames]
+        masks = [f.pop("_mask") for f in out_frames]
         finite = np.concatenate([a[np.isfinite(a)] for a in arrays])
         vmin, vmax = (float(np.percentile(finite, 1.0)), float(np.percentile(finite, 99.7))) if finite.size else (0.0, 1.0)
 
-        return {
+        out: dict[str, Any] = {
             "target": {
                 "ra": ra, "dec": dec, "pmra": pmra, "pmdec": pmdec, "ref_epoch": ref_epoch,
                 "center_ra": c_ra, "center_dec": c_dec,
@@ -457,8 +476,14 @@ class SpherexArchive:
             "units": "MJy/sr (zodiacal light and local sky subtracted)",
             "source": "NASA/IPAC IRSA - SPHEREx Level-2 spectral images (" + ", ".join(coverage["collections"]) + ")",
             "is_simulated": False,
+            "pass_index": pass_index if mode == "pass" else None,
             "elapsed_s": round(time.perf_counter() - t0, 2),
         }
+        if keep_arrays:
+            out["_arrays"] = arrays
+            out["_masks"] = masks
+            out["_wcs"] = out_wcs
+        return out
 
     async def photometry(
         self,
@@ -538,7 +563,7 @@ class SpherexArchive:
             num = np.zeros((size_px, size_px), np.float64)
             den = np.zeros((size_px, size_px), np.float64)
             flag_hits = {name: 0 for name in REPORTED_FLAGS}
-            masked_any = np.zeros((size_px, size_px), bool)
+            n_valid = np.zeros((size_px, size_px), np.int32)
             used = []
             for c in members:
                 img, var, msk, flag_stats = reproject_cutout(c, world_ra, world_dec)
@@ -551,7 +576,7 @@ class SpherexArchive:
                 w = np.where(valid, 1.0 / np.where(var > 0, var, np.inf), 0.0)
                 num += np.where(valid, (img - sky) * w, 0.0)
                 den += w
-                masked_any |= msk
+                n_valid += valid
                 for name, frac in flag_stats.items():
                     flag_hits[name] = flag_hits.get(name, 0) + frac
                 used.append(c)
@@ -560,7 +585,9 @@ class SpherexArchive:
             with np.errstate(invalid="ignore", divide="ignore"):
                 data = np.where(den > 0, num / den, np.nan).astype(np.float32)
             data, filled = fill_saturated_holes(data)
-            masked_any |= filled
+            # A stacked pixel is unreliable when fewer than half of the exposures had valid data
+            # there (for single exposures: whenever it was flagged), or when it was filled.
+            masked_any = filled | (n_valid * 2 < len(used))
             mjd = float(np.mean([c.mjd for c in used]))
             waves = [c.wavelength_um for c in used if c.wavelength_um]
             target_px = None
@@ -592,6 +619,7 @@ class SpherexArchive:
                     "data": base64.b64encode(np.ascontiguousarray(data, dtype="<f4").tobytes()).decode("ascii"),
                     "mask": base64.b64encode(np.packbits(masked_any.astype(np.uint8)).tobytes()).decode("ascii"),
                     "_arr": data,
+                    "_mask": masked_any,
                 }
             )
         return out
@@ -752,6 +780,46 @@ def _spread(items: list, n: int) -> list:
         return list(items)
     idx = np.linspace(0, len(items) - 1, n).round().astype(int)
     return [items[i] for i in sorted(set(idx.tolist()))]
+
+
+SEQUENCE_GAP_DAYS = 0.05  # SPHEREx takes ~4 exposures ~2 min apart at each visit
+
+
+def group_sequences(frames: list[FrameRecord]) -> list[list[FrameRecord]]:
+    """Split frames into short exposure sequences (consecutive exposures < ~1 h apart)."""
+    seqs: list[list[FrameRecord]] = []
+    for f in sorted(frames, key=lambda r: r.mjd):
+        if seqs and f.mjd - seqs[-1][-1].mjd <= SEQUENCE_GAP_DAYS:
+            seqs[-1].append(f)
+        else:
+            seqs.append([f])
+    return seqs
+
+
+def select_sequences(frames: list[FrameRecord], budget: int) -> list[FrameRecord]:
+    """Pick whole exposure sequences, spread over the pass, until the download budget is used.
+
+    Keeping sequences intact matters for asteroid searches: a moving object shows up in the
+    2-4 exposures of one visit, while the other visits provide the static-sky template.
+    """
+    seqs = group_sequences(frames)
+    if sum(len(s) for s in seqs) <= budget:
+        return sorted(frames, key=lambda r: r.mjd)
+    order = seqs
+    # Interleave from both ends towards the middle so the time span stays wide.
+    picked_idx: list[int] = []
+    lo, hi = 0, len(order) - 1
+    while lo <= hi:
+        picked_idx.append(lo)
+        if hi != lo:
+            picked_idx.append(hi)
+        lo, hi = lo + 1, hi - 1
+    out: list[FrameRecord] = []
+    for i in picked_idx:
+        if len(out) + len(order[i]) > budget:
+            continue
+        out.extend(order[i])
+    return sorted(out, key=lambda r: r.mjd)
 
 
 def select_groups(frames: list[FrameRecord], mode: str, per_epoch: int, max_frames: int) -> list[list[FrameRecord]]:

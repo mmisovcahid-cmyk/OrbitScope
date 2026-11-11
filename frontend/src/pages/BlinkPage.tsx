@@ -179,8 +179,21 @@ export default function BlinkPage() {
             <select className={input} value={form.mode} onChange={(e) => setForm({ ...form, mode: e.target.value as BlinkQuery['mode'] })}>
               <option value="epoch">{t('blink.search.modeEpoch')}</option>
               <option value="frames">{t('blink.search.modeFrames')}</option>
+              <option value="pass">{t('blink.search.modePass')}</option>
             </select>
           </label>
+          {form.mode === 'pass' && (
+            <label className="text-[11px] text-gray-400 flex flex-col gap-1">
+              {t('detect.pass')}
+              <select className={input} value={form.pass_index ?? ''}
+                onChange={(e) => setForm({ ...form, pass_index: e.target.value === '' ? undefined : Number(e.target.value) })}>
+                <option value="">{t('detect.passAuto')}</option>
+                {Array.from({ length: Math.max(result?.coverage.n_epochs ?? 3, 3) }, (_, i) => (
+                  <option key={i} value={i}>{t('blink.panels.epoch')} {i + 1}</option>
+                ))}
+              </select>
+            </label>
+          )}
           {form.mode === 'epoch' ? (
             <label className="text-[11px] text-gray-400 flex flex-col gap-1">
               {t('blink.search.perEpoch')}

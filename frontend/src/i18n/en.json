@@ -422,7 +422,8 @@
       "modeFrames": "Individual exposures",
       "perEpoch": "Exposures stacked per pass",
       "maxFrames": "Max. exposures",
-      "tryTargets": "Test targets:"
+      "tryTargets": "Test targets:",
+      "modePass": "Individual exposures of one survey pass"
     },
     "errors": {
       "empty": "Enter an object name or coordinates.",
@@ -523,5 +524,96 @@
       "flagged": "flagged pixels in aperture",
       "lvfNote": "colour = detector"
     }
+  },
+  "detect": {
+    "title": "Moving-Object Search (real SPHEREx data)",
+    "subtitle": "Search real SPHEREx images for objects that move: asteroids and comets within one survey pass, or nearby stars and brown dwarfs with large proper motion across passes. Every detection is checked against known objects (JPL Small-Body database, Gaia DR3, CatWISE2020) and can be reviewed by you.",
+    "search": {
+      "asteroids": "Asteroids & comets",
+      "proper_motion": "Proper motion (stars, brown dwarfs)"
+    },
+    "searchHelp": {
+      "asteroids": "Uses the individual exposures of one survey pass. Objects visible in only one visit are found by subtracting the static sky.",
+      "proper_motion": "Uses one deep stack per survey pass (≈6 months apart). Finds sources that shifted between passes."
+    },
+    "run": "Search",
+    "pass": "Survey pass",
+    "passAuto": "Auto (most exposures)",
+    "maxFrames": "Exposures to download",
+    "threshold": "Detection threshold",
+    "loading": "Downloading exposures and searching… {{seconds}} s",
+    "loadingHint": "A new field takes 1–3 minutes (IRSA download + JPL check). Repeating a search is much faster.",
+    "howTitle": "How the search works",
+    "how1": "Pick a field (object name or coordinates) and a search type, or try an example.",
+    "how2": "OrbitScope downloads the real SPHEREx exposures, aligns them and builds a static-sky template per detector.",
+    "how3": "Residual sources that are not in the template are linked across exposures; their motion is fitted.",
+    "how4": "Detections are compared with known asteroids/comets (JPL) or stars (Gaia, CatWISE). Unmatched movers are new candidates — please review them.",
+    "disclaimer": "Candidates are not discoveries. Real objects must be confirmed with additional observations and reported through the proper channels (e.g. the Minor Planet Center).",
+    "stats": {
+      "frames": "Frames searched",
+      "detections": "Residual detections",
+      "single": "Single-frame (rejected)",
+      "candidates": "Candidates",
+      "knownRecovered": "Known objects recovered",
+      "brightRecovered": "Known V≤18 recovered",
+      "pm": "Proper-motion sources",
+      "variable": "Variable sources",
+      "noisy": "Noisy frames skipped",
+      "measured": "Sources measured",
+      "astrometry": "Astrometric precision"
+    },
+    "showKnown": "Known asteroids/comets (JPL)",
+    "showWeak": "Show weak / residual detections",
+    "candidates": "Candidates",
+    "none": "No candidates above the threshold in this field.",
+    "col": {
+      "class": "Class",
+      "match": "Match",
+      "n": "Det.",
+      "rate": "Rate",
+      "review": "Review"
+    },
+    "score": "score",
+    "fitRms": "Track fit RMS",
+    "visits": "Visits linked",
+    "known": "Known objects in the field",
+    "noKnown": "JPL lists no known asteroids or comets in this field at these times (V ≤ 21).",
+    "knownNote": "Positions from NASA/JPL SB Ident (geocentric). ✓ = recovered by the search. Objects fainter than V≈18 are usually below SPHEREx single-exposure depth.",
+    "saved": "Saved candidates",
+    "noSaved": "No saved candidates yet.",
+    "all": "All",
+    "review": {
+      "real": "Real",
+      "artifact": "Artifact",
+      "unsure": "Unsure",
+      "unreviewed": "Unreviewed"
+    },
+    "classes": {
+      "unknown_mover": "New mover?",
+      "known_sso": "Known asteroid",
+      "moving_object": "Mover",
+      "pm_candidate": "New PM source?",
+      "known_pm_star": "Known PM star",
+      "pm_unconfirmed": "Low-PM match",
+      "variable": "Variable",
+      "variable_or_residual": "Star residual",
+      "low_confidence": "Low confidence",
+      "stationary_transient": "Stationary transient"
+    },
+    "explain": {
+      "unknown_mover": "A source seen in several exposures of one visit that is absent from the static sky and does not match any known asteroid or comet. Check it in Blink before marking it real.",
+      "known_sso": "Matches the predicted position of a known asteroid or comet from JPL.",
+      "pm_candidate": "Shifted between survey passes, but no Gaia/CatWISE star with matching motion was found here. Could be a new nearby brown dwarf — or an artifact.",
+      "known_pm_star": "Shifted between survey passes and matches a known star with significant proper motion.",
+      "pm_unconfirmed": "Shifted between passes, but the matching catalog star has little proper motion — likely a residual.",
+      "variable": "Brightness changed at a fixed position: a variable star or an artifact.",
+      "variable_or_residual": "Residual on top of a bright star; usually caused by SPHEREx's wavelength-dependent brightness, not motion.",
+      "low_confidence": "Detections do not fit a straight-line motion well.",
+      "stationary_transient": "Appears in some exposures only, but at a FIXED position (it recurs in other visits or did not move between visits). Solar-system objects always move, so this is a variable source, detector persistence or another artifact."
+    },
+    "recurrence": "Same-spot recurrences",
+    "measuredPm": "Measured proper motion",
+    "significance": "Shift significance",
+    "fluxRatio": "Brightness change (max/min)"
   }
 }

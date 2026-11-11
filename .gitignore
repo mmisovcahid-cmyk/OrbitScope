@@ -15,3 +15,6 @@ frontend/dist/
 
 # SPHEREx cutout / coverage cache
 backend/cache/
+
+# Candidate database
+backend/data/

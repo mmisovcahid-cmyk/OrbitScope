@@ -19,7 +19,11 @@ from fastapi.responses import Response
 from PIL import Image, ImageDraw
 
 from app.core.logging_config import get_logger
+from pydantic import BaseModel, Field
+
+from app.services.candidate_store import get_store
 from app.services.catalog_overlay import CatalogError, fetch_catalog
+from app.services.detection_service import run_detection
 from app.services.spherex_archive import DETECTOR_BANDS, SpherexError, spherex_archive
 from app.services.target_resolver import BUILTIN_TARGETS, resolve
 
@@ -36,6 +40,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "upstream": "The IRSA archive did not respond correctly. Please try again in a moment.",
         "bad_detector": "Detector must be 1-6 or 'all'.",
         "catalog_down": "The reference catalog service is not responding. Try again later.",
+        "candidate_not_found": "Candidate not found.",
+        "bad_pass": "That survey pass does not exist for this position.",
     },
     "az": {
         "ok": "SPHEREx kadrları yükləndi",
@@ -46,6 +52,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "upstream": "IRSA arxivi düzgün cavab vermədi. Bir az sonra yenidən cəhd edin.",
         "bad_detector": "Detektor 1-6 və ya 'all' olmalıdır.",
         "catalog_down": "İstinad kataloq servisi cavab vermir. Bir az sonra yenidən cəhd edin.",
+        "candidate_not_found": "Namizəd tapılmadı.",
+        "bad_pass": "Bu mövqe üçün belə müşahidə keçidi yoxdur.",
     },
 }
 
@@ -84,7 +92,7 @@ async def _target_from_query(
 
 
 def _raise_archive(exc: SpherexError, locale: str) -> None:
-    status = 404 if exc.code in ("no_coverage", "no_detector_coverage", "no_data") else 502
+    status = 404 if exc.code in ("no_coverage", "no_detector_coverage", "no_data") else 400 if exc.code == "bad_pass" else 502
     raise HTTPException(status_code=status, detail=_msg(locale, exc.code if exc.code in MESSAGES["en"] else "upstream"))
 
 
@@ -119,14 +127,14 @@ async def coverage(
 
 
 async def _build(
-    target, ra, dec, pmra, pmdec, ref_epoch, fov, detector, mode, per_epoch, max_frames, locale
+    target, ra, dec, pmra, pmdec, ref_epoch, fov, detector, mode, per_epoch, max_frames, locale, pass_index=None
 ) -> dict[str, Any]:
     tgt = await _target_from_query(target, ra, dec, pmra, pmdec, ref_epoch, locale)
     dets = _parse_detectors(detector, locale)
     try:
         result = await spherex_archive.build_blink(
             ra=tgt["ra"], dec=tgt["dec"], fov_deg=fov, detectors=dets, mode=mode,
-            per_epoch=per_epoch, max_frames=max_frames,
+            per_epoch=per_epoch, max_frames=max_frames, pass_index=pass_index,
             pmra=tgt.get("pmra"), pmdec=tgt.get("pmdec"), ref_epoch=tgt.get("ref_epoch") or 2000.0,
         )
     except SpherexError as exc:
@@ -145,12 +153,13 @@ async def blink(
     ref_epoch: Optional[float] = Query(None, description="Epoch of ra/dec (Julian year)"),
     fov: float = Query(0.1, ge=0.02, le=0.5, description="Field of view (deg)"),
     detector: str = Query("3", description="1-6, comma list, or 'all'"),
-    mode: str = Query("epoch", pattern="^(epoch|frames)$"),
+    mode: str = Query("epoch", pattern="^(epoch|frames|pass)$"),
+    pass_index: Optional[int] = Query(None, ge=0, le=50),
     per_epoch: int = Query(4, ge=1, le=12),
     max_frames: int = Query(16, ge=2, le=48),
     locale: str = "en",
 ) -> dict[str, Any]:
-    data = await _build(target, ra, dec, pmra, pmdec, ref_epoch, fov, detector, mode, per_epoch, max_frames, locale)
+    data = await _build(target, ra, dec, pmra, pmdec, ref_epoch, fov, detector, mode, per_epoch, max_frames, locale, pass_index)
     return {"success": True, "message": _msg(locale, "ok"), "data": data}
 
 
@@ -198,6 +207,69 @@ async def overlay(
     return {"success": True, "data": data}
 
 
+@router.get("/detect", summary="Search real SPHEREx frames for moving objects (asteroids or proper motion)")
+async def detect(
+    target: Optional[str] = Query(None, max_length=200),
+    ra: Optional[float] = Query(None, ge=0, lt=360),
+    dec: Optional[float] = Query(None, ge=-90, le=90),
+    pmra: Optional[float] = None,
+    pmdec: Optional[float] = None,
+    ref_epoch: Optional[float] = None,
+    search: str = Query("asteroids", pattern="^(asteroids|proper_motion)$"),
+    fov: float = Query(0.2, ge=0.05, le=0.5),
+    detector: str = Query("1,4", description="1-6, comma list, or 'all'"),
+    pass_index: Optional[int] = Query(None, ge=0, le=50, description="Survey pass for asteroid searches (default: richest)"),
+    max_frames: int = Query(36, ge=6, le=48),
+    z_thresh: float = Query(5.0, ge=3.0, le=20.0),
+    vmag_lim: float = Query(21.0, ge=10.0, le=25.0),
+    locale: str = "en",
+) -> dict[str, Any]:
+    tgt = await _target_from_query(target, ra, dec, pmra, pmdec, ref_epoch, locale)
+    dets = _parse_detectors(detector, locale)
+    try:
+        data = await run_detection(tgt, search=search, fov_deg=fov, detectors=dets, pass_index=pass_index,
+                                   max_frames=max_frames, z_thresh=z_thresh, vmag_lim=vmag_lim)
+    except SpherexError as exc:
+        _raise_archive(exc, locale)
+    return {"success": True, "data": data}
+
+
+@router.get("/candidates", summary="Saved candidates (with review status)")
+async def list_candidates(
+    status: Optional[str] = Query(None, pattern="^(unreviewed|real|artifact|unsure)$"),
+    klass: Optional[str] = Query(None, alias="class", max_length=40),
+    limit: int = Query(100, ge=1, le=1000),
+) -> dict[str, Any]:
+    store = get_store()
+    return {"success": True, "data": {"candidates": store.list(status, klass, limit), "counts": store.counts()}}
+
+
+class ReviewBody(BaseModel):
+    status: str = Field(..., pattern="^(unreviewed|real|artifact|unsure)$")
+    note: Optional[str] = Field(None, max_length=2000)
+
+
+@router.patch("/candidates/{cand_id}", summary="Review a candidate (real / artifact / unsure)")
+async def review_candidate(cand_id: str, body: ReviewBody, locale: str = "en") -> dict[str, Any]:
+    updated = get_store().review(cand_id, body.status, body.note)
+    if not updated:
+        raise HTTPException(status_code=404, detail=_msg(locale, "candidate_not_found"))
+    return {"success": True, "data": updated}
+
+
+@router.get("/candidates/{cand_id}/export", summary="Export candidate astrometry (CSV)")
+async def export_candidate(cand_id: str, locale: str = "en") -> Response:
+    c = get_store().get(cand_id)
+    if not c:
+        raise HTTPException(status_code=404, detail=_msg(locale, "candidate_not_found"))
+    lines = ["candidate,class,date_utc,mjd,ra_deg,dec_deg,detector,snr"]
+    for d in c["detections"]:
+        lines.append(f"{c['id']},{c['class']},{d['date']},{d['mjd']:.6f},{d['ra']:.6f},{d['dec']:.6f},"
+                     f"{'/'.join(map(str, d['detectors']))},{d['z']}")
+    return Response("\n".join(lines) + "\n", media_type="text/csv",
+                    headers={"Content-Disposition": f'attachment; filename="{cand_id}.csv"'})
+
+
 def _render_png_frames(data: dict[str, Any], scale: int = 4) -> list[Image.Image]:
     w, h = data["grid"]["width"], data["grid"]["height"]
     vmin, vmax = data["stretch_hint"]["vmin"], data["stretch_hint"]["vmax"]
@@ -231,13 +303,14 @@ async def blink_gif(
     ref_epoch: Optional[float] = None,
     fov: float = Query(0.1, ge=0.02, le=0.5),
     detector: str = "3",
-    mode: str = Query("epoch", pattern="^(epoch|frames)$"),
+    mode: str = Query("epoch", pattern="^(epoch|frames|pass)$"),
+    pass_index: Optional[int] = Query(None, ge=0, le=50),
     per_epoch: int = Query(4, ge=1, le=12),
     max_frames: int = Query(16, ge=2, le=48),
     delay_ms: int = Query(600, ge=50, le=5000),
     locale: str = "en",
 ) -> Response:
-    data = await _build(target, ra, dec, pmra, pmdec, ref_epoch, fov, detector, mode, per_epoch, max_frames, locale)
+    data = await _build(target, ra, dec, pmra, pmdec, ref_epoch, fov, detector, mode, per_epoch, max_frames, locale, pass_index)
     frames = _render_png_frames(data)
     buf = io.BytesIO()
     frames[0].save(buf, format="GIF", save_all=True, append_images=frames[1:], duration=delay_ms, loop=0)

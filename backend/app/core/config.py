@@ -109,6 +109,11 @@ class Settings(BaseSettings):
         description="Directory for cached SPHEREx cutouts, datalink URLs and coverage queries",
     )
 
+    ORBITSCOPE_DB_PATH: str = Field(
+        default=str(Path(__file__).resolve().parents[2] / "data" / "orbitscope.db"),
+        description="SQLite file for detection runs and reviewed candidates",
+    )
+
     # --- Logging Configuration ---
     LOG_LEVEL: str = Field(
         default="INFO",
