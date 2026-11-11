@@ -5,6 +5,9 @@ import { Search, Sparkles, Link2, Code2, Download, ExternalLink, AlertTriangle, 
 import BlinkViewer from '../components/blink/BlinkViewer';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { spherexService } from '../services';
+import api from '../services/api';
+
+const API_BASE = api.defaults.baseURL ?? '';
 import {
   BlinkQuery, BlinkResult, DEFAULT_QUERY, DETECTOR_INFO, apiParams, errorText, formatDec, formatRA,
   queryFromParams, queryToParams,
@@ -56,7 +59,7 @@ export default function BlinkPage() {
     const timer = window.setInterval(() => setElapsed(Math.round((Date.now() - started) / 1000)), 1000);
     spherexService.blink(apiParams(query), ctrl.signal)
       .then((res) => { setResult(res.data?.data ?? null); setFrameIdx(0); })
-      .catch((e) => { if (!ctrl.signal.aborted) { setResult(null); setError(errorText(e, t('blink.errors.timeout'))); } })
+      .catch((e) => { if (!ctrl.signal.aborted) { setResult(null); setError(errorText(e, t('blink.errors.timeout'), t('blink.errors.network', { url: API_BASE }))); } })
       .finally(() => { window.clearInterval(timer); if (!ctrl.signal.aborted) setLoading(false); });
     return () => { ctrl.abort(); window.clearInterval(timer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps

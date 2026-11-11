@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import BlinkViewer from '../components/blink/BlinkViewer';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { spherexService } from '../services';
+import api from '../services/api';
 import { BlinkResult, apiParams, errorText, queryFromParams, queryToParams } from '../lib/spherex';
 
 /** Minimal, iframe-friendly blink player: /embed?target=...&fov=...&det=... */
@@ -25,7 +26,7 @@ export default function EmbedPage() {
     const ctrl = new AbortController();
     spherexService.blink(apiParams(query), ctrl.signal)
       .then((res) => setResult(res.data?.data ?? null))
-      .catch((e) => { if (!ctrl.signal.aborted) setError(errorText(e, t('blink.errors.timeout'))); });
+      .catch((e) => { if (!ctrl.signal.aborted) setError(errorText(e, t('blink.errors.timeout'), t('blink.errors.network', { url: api.defaults.baseURL }))); });
     return () => ctrl.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.toString()]);

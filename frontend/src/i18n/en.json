@@ -426,7 +426,8 @@
     },
     "errors": {
       "empty": "Enter an object name or coordinates.",
-      "timeout": "The request took too long. IRSA may be busy; try again or choose a smaller field."
+      "timeout": "The request took too long. IRSA may be busy; try again or choose a smaller field.",
+      "network": "Cannot reach the OrbitScope backend at {{url}}. Start it from the project's backend folder (python run.py) and make sure only one backend is running on port 8000."
     },
     "intro": {
       "title": "How it works",

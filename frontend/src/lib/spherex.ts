@@ -220,11 +220,13 @@ export function queryToParams(q: BlinkQuery): Record<string, string> {
 }
 
 /** Human-readable message from an axios error (FastAPI `detail` first). */
-export function errorText(e: any, timeoutMessage: string): string {
+export function errorText(e: any, timeoutMessage: string, networkMessage?: string): string {
   const d = e?.response?.data?.detail;
   if (typeof d === 'string') return d;
   if (Array.isArray(d) && d[0]?.msg) return d[0].msg;
   if (e?.code === 'ECONNABORTED') return timeoutMessage;
+  if (!e?.response && networkMessage) return networkMessage; // backend down or CORS-blocked
+  if (e?.response?.status === 404) return networkMessage ?? e.message;
   return e?.message || timeoutMessage;
 }
 

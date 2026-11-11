@@ -426,7 +426,8 @@
     },
     "errors": {
       "empty": "Obyekt adı və ya koordinat daxil edin.",
-      "timeout": "Sorğu çox uzun çəkdi. IRSA məşğul ola bilər; yenidən cəhd edin və ya kiçik sahə seçin."
+      "timeout": "Sorğu çox uzun çəkdi. IRSA məşğul ola bilər; yenidən cəhd edin və ya kiçik sahə seçin.",
+      "network": "OrbitScope backend-inə ({{url}}) qoşulmaq olmur. Layihənin backend qovluğunda python run.py ilə işə salın və 8000 portunda yalnız bir backend-in işlədiyinə əmin olun."
     },
     "intro": {
       "title": "Necə işləyir",
