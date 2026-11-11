@@ -1,0 +1,151 @@
+"""
+OrbitScope Backend Configuration
+================================
+Loads and validates application settings using pydantic-settings BaseSettings.
+Reads environment variables or .env file with production-ready defaults.
+"""
+from typing import List, Union
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """
+    OrbitScope application settings loaded from environment variables or .env file.
+    """
+
+    # --- Application Metadata ---
+    APP_NAME: str = Field(
+        default="OrbitScope",
+        description="Name of the application service",
+    )
+    APP_VERSION: str = Field(
+        default="1.0.0",
+        description="Application semantic version",
+    )
+    DEBUG: bool = Field(
+        default=True,
+        description="Enable debug mode (hot-reloading, verbose error traces)",
+    )
+    DEMO_MODE: bool = Field(
+        default=True,
+        description="Enable simulated astronomical data fallback when NASA APIs are unreachable",
+    )
+
+    # --- Server Configuration ---
+    HOST: str = Field(
+        default="0.0.0.0",
+        description="Network interface IP address to bind to",
+    )
+    PORT: int = Field(
+        default=8000,
+        ge=1,
+        le=65535,
+        description="TCP port to bind the FastAPI/Uvicorn server to",
+    )
+
+    # --- NASA/JPL API Endpoints ---
+    JPL_SBDB_URL: str = Field(
+        default="https://ssd-api.jpl.nasa.gov/sbdb.api",
+        description="JPL Small-Body Database query API URL",
+    )
+    JPL_HORIZONS_URL: str = Field(
+        default="https://ssd.jpl.nasa.gov/api/horizons.api",
+        description="JPL Horizons on-line ephemeris computation API URL",
+    )
+    JPL_CAD_URL: str = Field(
+        default="https://ssd-api.jpl.nasa.gov/cad.api",
+        description="JPL Close-Approach Data API URL",
+    )
+    IRSA_TAP_URL: str = Field(
+        default="https://irsa.ipac.caltech.edu/TAP/sync",
+        description="NASA/IPAC Infrared Science Archive TAP synchronous query URL",
+    )
+    IRSA_BASE_URL: str = Field(
+        default="https://irsa.ipac.caltech.edu",
+        description="NASA/IPAC Infrared Science Archive base URL",
+    )
+
+    # --- API Authentication Keys ---
+    NASA_API_KEY: str = Field(
+        default="DEMO_KEY",
+        description="NASA API key for authenticated queries with higher rate limits",
+    )
+
+    # --- Cache Configuration ---
+    CACHE_TTL_SECONDS: int = Field(
+        default=300,
+        ge=1,
+        description="Default time-to-live in seconds for cached catalog and ephemeris entries",
+    )
+    CACHE_MAX_SIZE: int = Field(
+        default=1000,
+        ge=10,
+        description="Maximum number of items permitted in each in-memory TTLCache instance",
+    )
+
+    # --- Astronomical Processing Pipeline ---
+    MAX_PIPELINE_WORKERS: int = Field(
+        default=4,
+        ge=1,
+        le=32,
+        description="Maximum concurrent worker threads for astronomical image difference pipelines",
+    )
+    DEFAULT_DETECTION_SIGMA: float = Field(
+        default=3.0,
+        gt=0.0,
+        description="Default detection threshold in standard deviations above background noise",
+    )
+    DEFAULT_MATCH_RADIUS_ARCSEC: float = Field(
+        default=5.0,
+        gt=0.0,
+        description="Default cross-match association radius in arcseconds",
+    )
+
+    # --- Logging Configuration ---
+    LOG_LEVEL: str = Field(
+        default="INFO",
+        description="Logging level: DEBUG, INFO, WARNING, ERROR, or CRITICAL",
+    )
+    LOG_FORMAT: str = Field(
+        default="json",
+        description="Log output format: 'json' or 'text'",
+    )
+
+    # --- CORS Configuration ---
+    CORS_ORIGINS: Union[str, List[str]] = Field(
+        default=["http://localhost:3000", "http://localhost:5173", "http://localhost:8080"],
+        description="Allowed CORS origins as a list of URI strings or comma-separated string",
+    )
+
+    # --- Localization ---
+    DEFAULT_LOCALE: str = Field(
+        default="en",
+        description="Default fallback locale ('en' for English, 'az' for Azerbaijani)",
+    )
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+        extra="ignore",
+    )
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, value: Union[str, List[str]]) -> List[str]:
+        """
+        Parse comma-separated string into a list of cleaned origin strings.
+        Supports both comma-delimited strings and native Python lists/tuples.
+        """
+        if isinstance(value, str):
+            if not value.strip():
+                return []
+            return [origin.strip() for origin in value.split(",") if origin.strip()]
+        if isinstance(value, (list, tuple)):
+            return [str(origin).strip() for origin in value if str(origin).strip()]
+        return value
+
+
+# Module-level singleton instance for application-wide access
+settings = Settings()

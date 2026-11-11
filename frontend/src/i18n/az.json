@@ -1,0 +1,404 @@
+{
+  "app": {
+    "title": "OrbitScope",
+    "subtitle": "SPHEREx Monitorinq Platforması",
+    "description": "NASA SPHEREx astronomik müşahidə monitorinqi və hərəkət edən obyekt aşkarlama platforması"
+  },
+  "nav": {
+    "dashboard": "Səma Tədqiqatçısı",
+    "detection": "Aşkarlama",
+    "analysis": "Təhlil",
+    "comparison": "Müqayisə",
+    "planetx": "Planet X",
+    "catalog": "Kataloq",
+    "about": "Haqqında",
+    "settings": "Parametrlər",
+    "language": "Dil",
+    "collapse": "Paneli yığ"
+  },
+  "dashboard": {
+    "title": "Səma Tədqiqatçısı İdarə Paneli",
+    "subtitle": "SPHEREx müşahidələrinin və aşkarlamaların real vaxt monitorinqi",
+    "stats": {
+      "observations": "Ümumi Müşahidələr",
+      "candidates": "Aşkarlama Namizədləri",
+      "knownObjects": "Məlum Obyektlər",
+      "regions": "Səma Bölgələri",
+      "activePipelines": "Aktiv Boru Xətləri",
+      "dataSources": "Məlumat Mənbələri"
+    },
+    "recentDetections": "Son Aşkarlamalar",
+    "observationTimeline": "Müşahidə Xətti",
+    "skyMap": "İnteraktiv Səma Xəritəsi",
+    "noData": "Müşahidə məlumatı mövcud deyil",
+    "lastUpdated": "Son Yenilənmə"
+  },
+  "detection": {
+    "title": "Hərəkət Edən Obyektin Aşkarlanması",
+    "subtitle": "Çoxdövrlü SPHEREx müşahidələrini müqayisə edərək hərəkət edən obyektləri aşkarlayın",
+    "regionSelector": {
+      "title": "Bölgə Seçimi",
+      "ra": "Düz Eniş (°)",
+      "dec": "Deklinasiya (°)",
+      "radius": "Axtarış Radiusu (dəqiqə)",
+      "search": "Bölgəni Axtar",
+      "raHelp": "Aralıq: 0° - 360°",
+      "decHelp": "Aralıq: -90° - +90°",
+      "radiusHelp": "Tövsiyə: 5-30 dəqiqə"
+    },
+    "observations": {
+      "title": "Mövcud Müşahidələr",
+      "select": "Müqayisə üçün müşahidələr seçin",
+      "epoch": "Dövrü",
+      "band": "Zolaq",
+      "quality": "Keyfiyyət",
+      "sources": "Mənbələr",
+      "noObservations": "Bu bölgə üçün müşahidə tapılmadı",
+      "selected": "seçildi"
+    },
+    "pipeline": {
+      "title": "Aşkarlama Boru Xətti",
+      "run": "Aşkarlama Boru Xəttini İşə Sal",
+      "running": "Boru Xətti İşləyir...",
+      "complete": "Boru Xətti Tamamlandı",
+      "failed": "Boru Xətti Uğursuz Oldu",
+      "stages": {
+        "alignment": "Şəkil Uyğunlaşdırma",
+        "subtraction": "Şəkil Çıxarma",
+        "sourceExtraction": "Mənbə Çıxarılması",
+        "crossMatch": "Çarpaz Uyğunlaşdırma",
+        "classification": "Təsnifat"
+      },
+      "selectTwo": "Boru xəttini işə salmaq üçün dəqiq 2 müşahidə seçin",
+      "processing": "İşlənir..."
+    },
+    "results": {
+      "title": "Aşkarlama Nəticələri",
+      "candidates": "Tapılmış Namizədlər",
+      "known": "Məlum Obyektlər",
+      "artifacts": "Ehtimal Olunan Artefaktlar",
+      "noResults": "Aşkarlama nəticəsi yoxdur. Hərəkət edən obyektləri aşkarlamaq üçün boru xəttini işə salın.",
+      "viewDetails": "Ətraflı Bax",
+      "export": "Nəticələri İxrac Et"
+    }
+  },
+  "analysis": {
+    "title": "Namizəd Təhlili",
+    "subtitle": "Aşkarlama namizədinin ətraflı təhlili",
+    "header": {
+      "candidate": "Namizəd",
+      "detectedOn": "Aşkarlanma Tarixi",
+      "confidence": "Etibar Dərəcəsi",
+      "status": "Status"
+    },
+    "measurements": {
+      "title": "Aşkarlama Ölçmələri",
+      "displacement": "Sürüşmə",
+      "positionAngle": "Mövqe Bucağı",
+      "snr": "Siqnal-Səs-Küy Nisbəti",
+      "fluxRatio": "Axın Nisbəti",
+      "magnitude": "Təxmini Parlaqlıq",
+      "velocity": "Görünən Sürət",
+      "timeInterval": "Zaman Aralığı",
+      "arcsec": "qövs saniyəsi",
+      "arcsecPerDay": "qövs saniyəsi/gün",
+      "degrees": "dərəcə",
+      "days": "gün"
+    },
+    "images": {
+      "title": "Şəkil Kəsimləri",
+      "observation1": "Müşahidə 1 (Dövrü 1)",
+      "observation2": "Müşahidə 2 (Dövrü 2)",
+      "difference": "Fərq Şəkili",
+      "noImage": "Şəkil mövcud deyil"
+    },
+    "crossMatch": {
+      "title": "Çarpaz Uyğunlaşdırma Nəticələri",
+      "matchFound": "Uyğunluq Tapıldı",
+      "noMatch": "Axtarış radiusunda kataloq uyğunluğu tapılmadı",
+      "objectName": "Obyekt Adı",
+      "objectId": "Obyekt ID",
+      "separation": "Bucaq Məsafəsi",
+      "objectType": "Obyekt Növü",
+      "searchRadius": "Axtarış Radiusu"
+    },
+    "classification": {
+      "title": "Təsnifat",
+      "reason": "Təsnifat Əsaslandırması",
+      "confidence": "Təsnifat Etibarı",
+      "status": "Təyin Edilmiş Status"
+    },
+    "provenance": {
+      "title": "Məlumat Mənşəyi",
+      "source": "Məlumat Mənbəyi",
+      "pipeline": "Boru Xətti Versiyası",
+      "simulated": "Simulyasiya Məlumatı",
+      "quality": "Məlumat Keyfiyyəti",
+      "calibration": "Kalibrasiya Statusu",
+      "notes": "İşləmə Qeydləri",
+      "yes": "Bəli",
+      "no": "Xeyr"
+    },
+    "notFound": "Namizəd tapılmadı"
+  },
+  "comparison": {
+    "title": "Müşahidə Müqayisəsi",
+    "subtitle": "Dəyişiklikləri müəyyən etmək üçün çoxdövrlü müşahidələri müqayisə edin",
+    "controls": {
+      "observation1": "Müşahidə 1",
+      "observation2": "Müşahidə 2",
+      "mode": "Göstərmə Rejimi",
+      "sideBySide": "Yan-yana",
+      "overlay": "Üst-üstə",
+      "blink": "Yanıb-Sönmə",
+      "difference": "Fərq",
+      "blinkSpeed": "Yanıb-Sönmə Sürəti",
+      "opacity": "Üst-üstə Şəffaflığı",
+      "syncZoom": "Böyütməni Sinxronlaşdır",
+      "zoomIn": "Böyüt",
+      "zoomOut": "Kiçilt",
+      "resetView": "Görünüşü Sıfırla"
+    },
+    "info": {
+      "timeInterval": "Zaman Aralığı",
+      "epoch1": "Dövrü 1",
+      "epoch2": "Dövrü 2",
+      "changes": "Aşkarlanan Dəyişikliklər",
+      "noChanges": "Əhəmiyyətli dəyişiklik aşkarlanmadı"
+    },
+    "selectObservations": "Müqayisə etmək üçün iki müşahidə seçin"
+  },
+  "planetx": {
+    "title": "Planet X Tədqiqatı",
+    "subtitle": "Xarici Günəş sistemində hipotetik doqquzuncu planetin sübutlarının araşdırılması",
+    "disclaimer": "Doqquzuncu Planet birbaşa təsdiqlənməyib. Burada təqdim olunan sübutlar onun mümkün mövcudluğunu göstərən cari nəzəri proqnozları və müşahidə anomaliyalarını əks etdirir.",
+    "overview": {
+      "title": "Hipotezanın İcmalı",
+      "description": "Doqquzuncu Planet hipotezi uzaq xarici Günəş Sistemində böyük, kəşf edilməmiş bir planetin mövcudluğunu təklif edir. Bu hipotetik planet uzaq trans-Neptun obyektlərinin (TNO) orbitlərində müşahidə olunan bir neçə anomaliyanı izah edə bilər."
+    },
+    "evidence": {
+      "title": "Dəstəkləyici Sübutlar",
+      "orbitalClustering": {
+        "title": "Orbital Qruplaşma",
+        "description": "Bir neçə uzaq TNO oxşar orbital elementləri paylaşır (perihelion arqumenti, qalxan düyünün uzunluğu), bu da görünməyən kütləvi cismin cazibə təsirini göstərir."
+      },
+      "perihelionDetachment": {
+        "title": "Perihelion Ayrılması",
+        "description": "Sedna və 2012 VP113 kimi obyektlərin perihelionları Neptunun təsir zonasından çox uzaqdır, bu da uzaq kütləvi narahatedici ilə izah oluna bilər."
+      },
+      "solarObliquity": {
+        "title": "Günəş Əyilməsi",
+        "description": "Günəşin fırlanma oxunun planet orbital müstəvisinə nəzərən ~6° əyilməsi uzaq kütləvi planetin cazibə burulma momenti ilə yarana bilər."
+      },
+      "retrogradeOrbits": {
+        "title": "Retroqrad TNO Orbitləri",
+        "description": "Yüksək meyilli və retroqrad trans-Neptun obyektlərinin mövcudluğu Doqquzuncu Planet ilə sekulyar qarşılıqlı təsirlə izah oluna bilər."
+      },
+      "kuiperCliff": {
+        "title": "Kuiper Uçurumu",
+        "description": "Kuiper kəmərinin 50 AV yaxınlığında görünən kənarı uzaq kütləvi planetin cazibə təsiri ilə formalaşa bilər."
+      }
+    },
+    "predictions": {
+      "title": "Proqnozlaşdırılmış Parametrlər",
+      "mass": "Kütlə",
+      "semiMajorAxis": "Yarım Böyük Ox",
+      "eccentricity": "Ekssentrisitet",
+      "inclination": "Meyillik",
+      "orbitalPeriod": "Orbital Dövr",
+      "distance": "Cari Məsafə",
+      "magnitude": "Proqnozlaşdırılmış Parlaqlıq",
+      "parameter": "Parametr",
+      "value": "Dəyər",
+      "uncertainty": "Qeyri-müəyyənlik",
+      "source": "Mənbə"
+    },
+    "tno": {
+      "title": "TNO Orbital Paylanması",
+      "subtitle": "Potensial qruplaşma göstərən uzaq trans-Neptun obyektlərinin orbital elementləri"
+    },
+    "references": {
+      "title": "Əsas İstinadlar"
+    }
+  },
+  "catalog": {
+    "title": "JPL Kataloq Brauzeri",
+    "subtitle": "Məlum Günəş sistemi obyektləri üçün JPL Kiçik Cisim Verilənlər Bazasını araşdırın",
+    "search": {
+      "placeholder": "Ad və ya təyinat ilə axtar...",
+      "objectType": "Obyekt Növü",
+      "all": "Bütün Növlər",
+      "asteroid": "Asteroidlər",
+      "comet": "Kometalar",
+      "tno": "Trans-Neptun Obyektləri",
+      "neo": "Yalnız Yer Yaxını Obyektlər",
+      "pha": "Yalnız Potensial Təhlükəli",
+      "search": "Axtar",
+      "clear": "Təmizlə"
+    },
+    "results": {
+      "title": "Axtarış Nəticələri",
+      "noResults": "Axtarış meyarlarınıza uyğun obyekt tapılmadı",
+      "showing": "Göstərilir",
+      "of": "/",
+      "objects": "obyekt"
+    },
+    "detail": {
+      "title": "Obyekt Təfərrüatları",
+      "orbital": "Orbital Elementlər",
+      "physical": "Fiziki Parametrlər",
+      "semiMajorAxis": "Yarım Böyük Ox",
+      "eccentricity": "Ekssentrisitet",
+      "inclination": "Meyillik",
+      "lonAscNode": "Qalxan Düyünün Uzunluğu",
+      "argPerihelion": "Perihelion Arqumenti",
+      "meanAnomaly": "Orta Anomaliya",
+      "orbitalPeriod": "Orbital Dövr",
+      "perihelion": "Perihelion Məsafəsi",
+      "aphelion": "Afelion Məsafəsi",
+      "absoluteMag": "Mütləq Parlaqlıq",
+      "diameter": "Diametr",
+      "albedo": "Albedo",
+      "isNEO": "Yer Yaxını Obyekt",
+      "isPHA": "Potensial Təhlükəli",
+      "lastObservation": "Son Müşahidə",
+      "dataSource": "Məlumat Mənbəyi",
+      "au": "AV",
+      "km": "km",
+      "years": "il",
+      "degrees": "°",
+      "yes": "Bəli",
+      "no": "Xeyr",
+      "selectObject": "Təfərrüatları görmək üçün obyekt seçin"
+    }
+  },
+  "about": {
+    "title": "OrbitScope Haqqında",
+    "subtitle": "Elmi metodologiya, məlumat mənbələri və platforma sənədləri",
+    "overview": {
+      "title": "Platformanın İcmalı",
+      "description": "OrbitScope NASA SPHEREx tam-səma müşahidə məlumatlarında hərəkət edən obyektlərin aşkarlanması və xarakterizasiyasını dəstəkləmək üçün hazırlanmış elmi monitorinq platformasıdır. Platforma çoxdövrlü müşahidə müqayisəsi, avtomatlaşdırılmış aşkarlama boru xətləri və məlum Günəş sistemi obyekt kataloqları ilə çarpaz uyğunlaşdırma alətləri təqdim edir.",
+      "mission": "Missiyamız yeni Günəş sistemi obyektlərinin kəşfini asanlaşdırmaq və elmi ictimaiyyətə SPHEREx müşahidə məlumatlarının təhlilində dəstək verməkdir."
+    },
+    "methodology": {
+      "title": "Aşkarlama Metodologiyası",
+      "step1Title": "Şəkil Uyğunlaşdırma",
+      "step1Desc": "Çoxdövrlü müşahidələr astrometrik həllər və istinad ulduz uyğunlaşdırması ilə düzəldilir.",
+      "step2Title": "Şəkil Çıxarma",
+      "step2Desc": "Uyğunlaşdırılmış şəkillər hərəkət edən və ya dəyişən obyektləri vurğulayaraq dövrlar arasındakı dəyişiklikləri aşkar etmək üçün çıxarılır.",
+      "step3Title": "Mənbə Çıxarılması",
+      "step3Desc": "Əhəmiyyətli qalıqlar səs-küy qiymətləndirməsi ilə həddi əsaslı aşkarlama alqoritmləri istifadə edilərək müəyyən edilir.",
+      "step4Title": "Çarpaz Uyğunlaşdırma",
+      "step4Desc": "Aşkarlanan mənbələr JPL-in Kiçik Cisim Verilənlər Bazası və digər kataloqlarla çarpaz uyğunlaşdırılır.",
+      "step5Title": "Təsnifat",
+      "step5Desc": "Namizədlər hərəkət xüsusiyyətləri, SQN və kataloq çarpaz uyğunlaşdırma nəticələrinə əsasən təsnif edilir."
+    },
+    "dataSources": {
+      "title": "Məlumat Mənbələri",
+      "spherex": "NASA SPHEREx tam-səma müşahidə infraqırmızı spektral məlumatları",
+      "jpl": "Günəş sistemi obyekt kataloqları üçün JPL Kiçik Cisim Verilənlər Bazası",
+      "mpc": "Orbital element məlumatları üçün Kiçik Planetlər Mərkəzi",
+      "gaia": "Astrometrik istinad ulduzları üçün ESA Gaia kataloqu",
+      "note": "Qeyd: Bu platforma hazırda nümayiş məqsədləri üçün simulyasiya məlumatları ilə işləyir. Əsl SPHEREx müşahidə məlumatlarının inteqrasiyası gələcək buraxılışlar üçün planlaşdırılır."
+    },
+    "limitations": {
+      "title": "Məhdudiyyətlər və İmtinalar",
+      "item1": "Aşkarlama həssaslığı müşahidə tezliyi və şəkil keyfiyyəti ilə məhdudlaşır.",
+      "item2": "Çarpaz uyğunlaşdırma tamlığı istinad kataloqlarının əhatə dairəsindən asılıdır.",
+      "item3": "Simulyasiya məlumatları əsl SPHEREx alət xüsusiyyətlərini tam əks etdirməyə bilər.",
+      "item4": "Təsnifat alqoritmləri aktiv inkişaf mərhələsindədir və yanlış müsbət nəticələr verə bilər.",
+      "item5": "Planet X sübutları nəzəridir və nəşr olunmuş tədqiqatlara əsaslanır; birbaşa aşkarlama edilməyib."
+    },
+    "credits": {
+      "title": "Kreditlər və İstinadlar",
+      "spherexTeam": "NASA SPHEREx Missiya Komandası",
+      "jplSSD": "JPL Günəş Sistemi Dinamikası Qrupu",
+      "caltech": "Kaliforniya Texnologiya İnstitutu",
+      "battygin": "Batygin & Brown (2016) - Uzaq Nəhəng Planetin Sübutu",
+      "license": "Bu platforma təhsil və tədqiqat məqsədləri üçün hazırlanmışdır."
+    }
+  },
+  "common": {
+    "loading": "Yüklənir...",
+    "error": "Xəta baş verdi",
+    "retry": "Yenidən cəhd et",
+    "noData": "Məlumat mövcud deyil",
+    "save": "Saxla",
+    "cancel": "Ləğv et",
+    "close": "Bağla",
+    "delete": "Sil",
+    "edit": "Redaktə et",
+    "view": "Bax",
+    "back": "Geri",
+    "next": "Növbəti",
+    "previous": "Əvvəlki",
+    "search": "Axtar",
+    "filter": "Filtr",
+    "sort": "Sırala",
+    "export": "İxrac et",
+    "refresh": "Yenilə",
+    "actions": "Əməliyyatlar",
+    "details": "Təfərrüatlar",
+    "summary": "Xülasə",
+    "total": "Cəmi",
+    "count": "Say",
+    "name": "Ad",
+    "type": "Növ",
+    "status": "Status",
+    "date": "Tarix",
+    "time": "Vaxt",
+    "coordinates": "Koordinatlar",
+    "ra": "Düz Eniş",
+    "dec": "Deklinasiya",
+    "magnitude": "Parlaqlıq",
+    "simulated": "Simulyasiya",
+    "real": "Əsl Məlumat",
+    "confirmed": "Təsdiqlənmiş",
+    "unconfirmed": "Təsdiqlənməmiş",
+    "page": "Səhifə",
+    "of": "/",
+    "results": "nəticə",
+    "language": {
+      "en": "English",
+      "az": "Azərbaycan"
+    }
+  },
+  "status": {
+    "known_object": "Məlum Obyekt",
+    "candidate": "Namizəd",
+    "unlikely_candidate": "Uyğunsuz Namizəd",
+    "probable_artifact": "Ehtimal Olunan Artefakt",
+    "needs_review": "Yoxlama Tələb Olunur",
+    "pending": "Gözləyir",
+    "running": "İşləyir",
+    "completed": "Tamamlandı",
+    "failed": "Uğursuz"
+  },
+  "errors": {
+    "networkError": "Serverə qoşulmaq mümkün deyil. Bağlantınızı yoxlayın.",
+    "serverError": "Server xətası baş verdi. Zəhmət olmasa daha sonra yenidən cəhd edin.",
+    "notFound": "Tələb olunan resurs tapılmadı.",
+    "validationError": "Zəhmət olmasa daxil etdiyiniz dəyərləri yoxlayın.",
+    "unauthorized": "Bu əməliyyatı yerinə yetirmək icazəniz yoxdur.",
+    "timeout": "Sorğunun vaxtı keçdi. Yenidən cəhd edin.",
+    "rateLimited": "Çox sayda sorğu. Zəhmət olmasa bir az gözləyin.",
+    "invalidCoordinates": "Yanlış koordinatlar. DE 0-360, Dek -90-dan +90-a olmalıdır.",
+    "pipelineError": "Aşkarlama boru xəttində xəta baş verdi.",
+    "noObservationsSelected": "Boru xəttini işə salmadan əvvəl müşahidələr seçin."
+  },
+  "tooltips": {
+    "ra": "Düz Eniş dərəcə ilə (0°-dan 360°-yə) və ya saat:dəqiqə:saniyə formatında",
+    "dec": "Deklinasiya dərəcə ilə (-90°-dan +90°-yə) və ya dərəcə:dəqiqə:saniyə formatında",
+    "snr": "Siqnal-Səs-Küy Nisbəti — yüksək dəyərlər daha etibarlı aşkarlamaları göstərir",
+    "displacement": "Dövrlar arasında aşkarlamalar arasındakı bucaq məsafəsi",
+    "fluxRatio": "İki dövr arasında ölçülmüş axın nisbəti",
+    "magnitude": "Aşkarlanan obyektin təxmini görünən parlaqlığı",
+    "velocity": "Aşkarlanan obyektin görünən bucaq sürəti",
+    "simulated": "Bu məlumat nümayiş məqsədləri üçün simulyasiya edilmişdir",
+    "confidence": "Təsnifat etibar xalı (0-1)",
+    "perihelion": "Günəşə ən yaxın yanaşma məsafəsi",
+    "aphelion": "Günəşdən ən uzaq məsafə",
+    "neo": "Yer Yaxını Obyekt: perihelion məsafəsi 1.3 AV-dan az",
+    "pha": "Potensial Təhlükəli Asteroid: mütləq parlaqlıq ≤ 22 və MOID ≤ 0.05 AV"
+  }
+}

@@ -1,0 +1,404 @@
+{
+  "app": {
+    "title": "OrbitScope",
+    "subtitle": "SPHEREx Monitoring Platform",
+    "description": "NASA SPHEREx astronomical survey monitoring and moving object detection platform"
+  },
+  "nav": {
+    "dashboard": "Sky Explorer",
+    "detection": "Detection",
+    "analysis": "Analysis",
+    "comparison": "Comparison",
+    "planetx": "Planet X",
+    "catalog": "Catalog",
+    "about": "About",
+    "settings": "Settings",
+    "language": "Language",
+    "collapse": "Collapse Sidebar"
+  },
+  "dashboard": {
+    "title": "Sky Explorer Dashboard",
+    "subtitle": "Real-time monitoring of SPHEREx survey observations and detections",
+    "stats": {
+      "observations": "Total Observations",
+      "candidates": "Detection Candidates",
+      "knownObjects": "Known Objects",
+      "regions": "Sky Regions",
+      "activePipelines": "Active Pipelines",
+      "dataSources": "Data Sources"
+    },
+    "recentDetections": "Recent Detections",
+    "observationTimeline": "Observation Timeline",
+    "skyMap": "Interactive Sky Map",
+    "noData": "No observation data available",
+    "lastUpdated": "Last Updated"
+  },
+  "detection": {
+    "title": "Moving Object Detection",
+    "subtitle": "Detect moving objects by comparing multi-epoch SPHEREx observations",
+    "regionSelector": {
+      "title": "Region Selection",
+      "ra": "Right Ascension (°)",
+      "dec": "Declination (°)",
+      "radius": "Search Radius (arcmin)",
+      "search": "Search Region",
+      "raHelp": "Range: 0° to 360°",
+      "decHelp": "Range: -90° to +90°",
+      "radiusHelp": "Recommended: 5-30 arcmin"
+    },
+    "observations": {
+      "title": "Available Observations",
+      "select": "Select observations for comparison",
+      "epoch": "Epoch",
+      "band": "Band",
+      "quality": "Quality",
+      "sources": "Sources",
+      "noObservations": "No observations found for this region",
+      "selected": "selected"
+    },
+    "pipeline": {
+      "title": "Detection Pipeline",
+      "run": "Run Detection Pipeline",
+      "running": "Pipeline Running...",
+      "complete": "Pipeline Complete",
+      "failed": "Pipeline Failed",
+      "stages": {
+        "alignment": "Image Alignment",
+        "subtraction": "Image Subtraction",
+        "sourceExtraction": "Source Extraction",
+        "crossMatch": "Cross-Match Catalog",
+        "classification": "Classification"
+      },
+      "selectTwo": "Select exactly 2 observations to run the pipeline",
+      "processing": "Processing..."
+    },
+    "results": {
+      "title": "Detection Results",
+      "candidates": "Candidates Found",
+      "known": "Known Objects",
+      "artifacts": "Probable Artifacts",
+      "noResults": "No detection results available. Run the pipeline to detect moving objects.",
+      "viewDetails": "View Details",
+      "export": "Export Results"
+    }
+  },
+  "analysis": {
+    "title": "Candidate Analysis",
+    "subtitle": "Detailed analysis of detection candidate",
+    "header": {
+      "candidate": "Candidate",
+      "detectedOn": "Detected On",
+      "confidence": "Confidence",
+      "status": "Status"
+    },
+    "measurements": {
+      "title": "Detection Measurements",
+      "displacement": "Displacement",
+      "positionAngle": "Position Angle",
+      "snr": "Signal-to-Noise Ratio",
+      "fluxRatio": "Flux Ratio",
+      "magnitude": "Estimated Magnitude",
+      "velocity": "Apparent Velocity",
+      "timeInterval": "Time Interval",
+      "arcsec": "arcsec",
+      "arcsecPerDay": "arcsec/day",
+      "degrees": "degrees",
+      "days": "days"
+    },
+    "images": {
+      "title": "Image Cutouts",
+      "observation1": "Observation 1 (Epoch 1)",
+      "observation2": "Observation 2 (Epoch 2)",
+      "difference": "Difference Image",
+      "noImage": "No image available"
+    },
+    "crossMatch": {
+      "title": "Cross-Match Results",
+      "matchFound": "Match Found",
+      "noMatch": "No catalog match found within search radius",
+      "objectName": "Object Name",
+      "objectId": "Object ID",
+      "separation": "Angular Separation",
+      "objectType": "Object Type",
+      "searchRadius": "Search Radius"
+    },
+    "classification": {
+      "title": "Classification",
+      "reason": "Classification Reasoning",
+      "confidence": "Classification Confidence",
+      "status": "Assigned Status"
+    },
+    "provenance": {
+      "title": "Data Provenance",
+      "source": "Data Source",
+      "pipeline": "Pipeline Version",
+      "simulated": "Simulated Data",
+      "quality": "Data Quality",
+      "calibration": "Calibration Status",
+      "notes": "Processing Notes",
+      "yes": "Yes",
+      "no": "No"
+    },
+    "notFound": "Candidate not found"
+  },
+  "comparison": {
+    "title": "Observation Comparison",
+    "subtitle": "Compare multi-epoch observations to identify changes",
+    "controls": {
+      "observation1": "Observation 1",
+      "observation2": "Observation 2",
+      "mode": "Display Mode",
+      "sideBySide": "Side by Side",
+      "overlay": "Overlay",
+      "blink": "Blink",
+      "difference": "Difference",
+      "blinkSpeed": "Blink Speed",
+      "opacity": "Overlay Opacity",
+      "syncZoom": "Sync Zoom",
+      "zoomIn": "Zoom In",
+      "zoomOut": "Zoom Out",
+      "resetView": "Reset View"
+    },
+    "info": {
+      "timeInterval": "Time Interval",
+      "epoch1": "Epoch 1",
+      "epoch2": "Epoch 2",
+      "changes": "Detected Changes",
+      "noChanges": "No significant changes detected"
+    },
+    "selectObservations": "Select two observations to compare"
+  },
+  "planetx": {
+    "title": "Planet X Research",
+    "subtitle": "Exploring evidence for a hypothetical ninth planet in the outer solar system",
+    "disclaimer": "Planet Nine has not been directly confirmed. The evidence presented here represents current theoretical predictions and observational anomalies that suggest its possible existence.",
+    "overview": {
+      "title": "Hypothesis Overview",
+      "description": "The Planet Nine hypothesis proposes the existence of a large, undiscovered planet in the distant outer Solar System. This hypothetical planet could explain several observed anomalies in the orbits of distant trans-Neptunian objects (TNOs)."
+    },
+    "evidence": {
+      "title": "Supporting Evidence",
+      "orbitalClustering": {
+        "title": "Orbital Clustering",
+        "description": "Several distant TNOs share similar orbital elements (argument of perihelion, longitude of ascending node), suggesting gravitational influence from an unseen massive body."
+      },
+      "perihelionDetachment": {
+        "title": "Perihelion Detachment",
+        "description": "Objects like Sedna and 2012 VP113 have perihelia far beyond Neptune's influence, which could be explained by a distant massive perturber."
+      },
+      "solarObliquity": {
+        "title": "Solar Obliquity",
+        "description": "The ~6° tilt of the Sun's spin axis relative to the planetary orbital plane could be induced by the gravitational torque of a distant massive planet."
+      },
+      "retrogradeOrbits": {
+        "title": "Retrograde TNO Orbits",
+        "description": "The existence of high-inclination and retrograde trans-Neptunian objects can be explained by secular interactions with Planet Nine."
+      },
+      "kuiperCliff": {
+        "title": "Kuiper Cliff",
+        "description": "The apparent edge of the Kuiper Belt near 50 AU could be sculpted by the gravitational influence of a distant massive planet."
+      }
+    },
+    "predictions": {
+      "title": "Predicted Parameters",
+      "mass": "Mass",
+      "semiMajorAxis": "Semi-Major Axis",
+      "eccentricity": "Eccentricity",
+      "inclination": "Inclination",
+      "orbitalPeriod": "Orbital Period",
+      "distance": "Current Distance",
+      "magnitude": "Predicted Magnitude",
+      "parameter": "Parameter",
+      "value": "Value",
+      "uncertainty": "Uncertainty",
+      "source": "Source"
+    },
+    "tno": {
+      "title": "TNO Orbital Distribution",
+      "subtitle": "Orbital elements of distant trans-Neptunian objects showing potential clustering"
+    },
+    "references": {
+      "title": "Key References"
+    }
+  },
+  "catalog": {
+    "title": "JPL Catalog Browser",
+    "subtitle": "Browse the JPL Small-Body Database for known solar system objects",
+    "search": {
+      "placeholder": "Search by name or designation...",
+      "objectType": "Object Type",
+      "all": "All Types",
+      "asteroid": "Asteroids",
+      "comet": "Comets",
+      "tno": "Trans-Neptunian Objects",
+      "neo": "Near-Earth Objects Only",
+      "pha": "Potentially Hazardous Only",
+      "search": "Search",
+      "clear": "Clear"
+    },
+    "results": {
+      "title": "Search Results",
+      "noResults": "No objects found matching your search criteria",
+      "showing": "Showing",
+      "of": "of",
+      "objects": "objects"
+    },
+    "detail": {
+      "title": "Object Details",
+      "orbital": "Orbital Elements",
+      "physical": "Physical Parameters",
+      "semiMajorAxis": "Semi-Major Axis",
+      "eccentricity": "Eccentricity",
+      "inclination": "Inclination",
+      "lonAscNode": "Longitude of Ascending Node",
+      "argPerihelion": "Argument of Perihelion",
+      "meanAnomaly": "Mean Anomaly",
+      "orbitalPeriod": "Orbital Period",
+      "perihelion": "Perihelion Distance",
+      "aphelion": "Aphelion Distance",
+      "absoluteMag": "Absolute Magnitude",
+      "diameter": "Diameter",
+      "albedo": "Albedo",
+      "isNEO": "Near-Earth Object",
+      "isPHA": "Potentially Hazardous",
+      "lastObservation": "Last Observation",
+      "dataSource": "Data Source",
+      "au": "AU",
+      "km": "km",
+      "years": "years",
+      "degrees": "°",
+      "yes": "Yes",
+      "no": "No",
+      "selectObject": "Select an object to view details"
+    }
+  },
+  "about": {
+    "title": "About OrbitScope",
+    "subtitle": "Scientific methodology, data sources, and platform documentation",
+    "overview": {
+      "title": "Platform Overview",
+      "description": "OrbitScope is a scientific monitoring platform designed to support the detection and characterization of moving objects in the NASA SPHEREx all-sky survey data. The platform provides tools for multi-epoch observation comparison, automated detection pipelines, and cross-matching with known solar system object catalogs.",
+      "mission": "Our mission is to facilitate the discovery of new solar system objects and support the scientific community in analyzing SPHEREx survey data."
+    },
+    "methodology": {
+      "title": "Detection Methodology",
+      "step1Title": "Image Alignment",
+      "step1Desc": "Multi-epoch observations are aligned using astrometric solutions and reference star matching.",
+      "step2Title": "Image Subtraction",
+      "step2Desc": "Aligned images are subtracted to reveal changes between epochs, highlighting moving or variable objects.",
+      "step3Title": "Source Extraction",
+      "step3Desc": "Significant residuals are identified using threshold-based detection algorithms with noise estimation.",
+      "step4Title": "Cross-Matching",
+      "step4Desc": "Detected sources are cross-matched against JPL's Small-Body Database and other catalogs.",
+      "step5Title": "Classification",
+      "step5Desc": "Candidates are classified based on motion characteristics, SNR, and catalog cross-match results."
+    },
+    "dataSources": {
+      "title": "Data Sources",
+      "spherex": "NASA SPHEREx all-sky survey infrared spectral data",
+      "jpl": "JPL Small-Body Database for solar system object catalogs",
+      "mpc": "Minor Planet Center for orbital element data",
+      "gaia": "ESA Gaia catalog for astrometric reference stars",
+      "note": "Note: This platform currently operates with simulated data for demonstration purposes. Real SPHEREx survey data integration is planned for future releases."
+    },
+    "limitations": {
+      "title": "Limitations & Disclaimers",
+      "item1": "Detection sensitivity is limited by observation cadence and image quality.",
+      "item2": "Cross-match completeness depends on the coverage of reference catalogs.",
+      "item3": "Simulated data may not fully represent real SPHEREx instrument characteristics.",
+      "item4": "Classification algorithms are under active development and may produce false positives.",
+      "item5": "Planet X evidence is theoretical and based on published research; no direct detection has been made."
+    },
+    "credits": {
+      "title": "Credits & References",
+      "spherexTeam": "NASA SPHEREx Mission Team",
+      "jplSSD": "JPL Solar System Dynamics Group",
+      "caltech": "California Institute of Technology",
+      "battygin": "Batygin & Brown (2016) - Evidence for a Distant Giant Planet",
+      "license": "This platform is developed for educational and research purposes."
+    }
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "retry": "Retry",
+    "noData": "No data available",
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "delete": "Delete",
+    "edit": "Edit",
+    "view": "View",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "search": "Search",
+    "filter": "Filter",
+    "sort": "Sort",
+    "export": "Export",
+    "refresh": "Refresh",
+    "actions": "Actions",
+    "details": "Details",
+    "summary": "Summary",
+    "total": "Total",
+    "count": "Count",
+    "name": "Name",
+    "type": "Type",
+    "status": "Status",
+    "date": "Date",
+    "time": "Time",
+    "coordinates": "Coordinates",
+    "ra": "Right Ascension",
+    "dec": "Declination",
+    "magnitude": "Magnitude",
+    "simulated": "Simulated",
+    "real": "Real Data",
+    "confirmed": "Confirmed",
+    "unconfirmed": "Unconfirmed",
+    "page": "Page",
+    "of": "of",
+    "results": "results",
+    "language": {
+      "en": "English",
+      "az": "Azərbaycan"
+    }
+  },
+  "status": {
+    "known_object": "Known Object",
+    "candidate": "Candidate",
+    "unlikely_candidate": "Unlikely Candidate",
+    "probable_artifact": "Probable Artifact",
+    "needs_review": "Needs Review",
+    "pending": "Pending",
+    "running": "Running",
+    "completed": "Completed",
+    "failed": "Failed"
+  },
+  "errors": {
+    "networkError": "Unable to connect to the server. Please check your connection.",
+    "serverError": "Server error occurred. Please try again later.",
+    "notFound": "The requested resource was not found.",
+    "validationError": "Please check your input values.",
+    "unauthorized": "You are not authorized to perform this action.",
+    "timeout": "Request timed out. Please try again.",
+    "rateLimited": "Too many requests. Please wait a moment.",
+    "invalidCoordinates": "Invalid coordinates. RA must be 0-360, Dec must be -90 to +90.",
+    "pipelineError": "Detection pipeline encountered an error.",
+    "noObservationsSelected": "Please select observations before running the pipeline."
+  },
+  "tooltips": {
+    "ra": "Right Ascension in degrees (0° to 360°) or hours:minutes:seconds",
+    "dec": "Declination in degrees (-90° to +90°) or degrees:arcmin:arcsec",
+    "snr": "Signal-to-Noise Ratio — higher values indicate more reliable detections",
+    "displacement": "Angular separation between detections across epochs",
+    "fluxRatio": "Ratio of measured flux between the two epochs",
+    "magnitude": "Estimated apparent magnitude of the detected object",
+    "velocity": "Apparent angular velocity of the detected object",
+    "simulated": "This data is simulated for demonstration purposes",
+    "confidence": "Classification confidence score (0-1)",
+    "perihelion": "Closest approach distance to the Sun",
+    "aphelion": "Farthest distance from the Sun",
+    "neo": "Near-Earth Object: perihelion distance less than 1.3 AU",
+    "pha": "Potentially Hazardous Asteroid: absolute magnitude ≤ 22 and MOID ≤ 0.05 AU"
+  }
+}
