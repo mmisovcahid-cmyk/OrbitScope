@@ -615,5 +615,22 @@
     "measuredPm": "Ölçülən xüsusi hərəkət",
     "significance": "Yerdəyişmənin əhəmiyyəti",
     "fluxRatio": "Parlaqlıq dəyişməsi (maks/min)"
+  },
+  "jobs": {
+    "stage": {
+      "queued": "Növbədə gözləyir…",
+      "starting": "Başlayır…",
+      "coverage": "SPHEREx ekspozisiyaları axtarılır (IRSA)…",
+      "download": "Ekspozisiyalar yüklənir",
+      "assemble": "Şəkillər üst-üstə düzülür və toplanır…",
+      "measure": "Ölçülür…",
+      "search": "Hərəkətli mənbələr axtarılır…",
+      "catalogs": "Məlum obyektlər yoxlanılır (JPL / Gaia / CatWISE)…",
+      "save": "Namizədlər saxlanılır…",
+      "done": "Hazırdır"
+    },
+    "queued": "Başqa axtarışlar işləyir; bu, boş yer açılan kimi başlayacaq.",
+    "cancel": "Ləğv et",
+    "cancelled": "Ləğv edildi."
   }
 }

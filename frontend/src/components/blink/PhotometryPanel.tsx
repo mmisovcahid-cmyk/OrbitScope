@@ -3,9 +3,11 @@ import { useTranslation } from 'react-i18next';
 import {
   CartesianGrid, ErrorBar, Legend, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis,
 } from 'recharts';
-import { Activity, Loader2 } from 'lucide-react';
-import { spherexService } from '../../services';
+import type { TooltipProps } from 'recharts';
+import { Activity } from 'lucide-react';
 import api from '../../services/api';
+import JobProgressBar from '../common/JobProgressBar';
+import { JobProgress, isAbort, runJob } from '../../lib/jobs';
 import { DETECTOR_COLORS, PhotPoint, PhotometryResult, errorText, formatDec, formatRA } from '../../lib/spherex';
 
 interface Props {
@@ -23,7 +25,7 @@ export default function PhotometryPanel({ targetParams, targetLabel, pick }: Pro
   const { t } = useTranslation();
   const [data, setData] = useState<PhotometryResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
+  const [progress, setProgress] = useState<JobProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showFlagged, setShowFlagged] = useState(false);
   const [measured, setMeasured] = useState<Source | null>(null);
@@ -40,19 +42,16 @@ export default function PhotometryPanel({ targetParams, targetLabel, pick }: Pro
     const params: Record<string, string | number> =
       src === 'pick' && pick ? { ra: pick[0], dec: pick[1] } : { ...targetParams };
     params.max_frames = 60;
-    delete params.fov; delete params.mode; delete params.per_epoch; delete params.detector;
-    setLoading(true); setError(null); setElapsed(0); setMeasured(src);
-    const started = Date.now();
-    const timer = window.setInterval(() => setElapsed(Math.round((Date.now() - started) / 1000)), 1000);
-    spherexService.photometry(params, ctrl.signal)
-      .then((res) => setData(res.data?.data ?? null))
+    delete params.fov; delete params.mode; delete params.per_epoch; delete params.detector; delete params.pass_index;
+    setLoading(true); setError(null); setProgress(null); setMeasured(src);
+    runJob<PhotometryResult>('photometry', params, setProgress, ctrl.signal)
+      .then((res) => setData(res))
       .catch((e) => {
-        if (!ctrl.signal.aborted) {
-          setData(null);
-          setError(errorText(e, t('blink.errors.timeout'), t('blink.errors.network', { url: api.defaults.baseURL })));
-        }
+        if (isAbort(e) || ctrl.signal.aborted) return;
+        setData(null);
+        setError(errorText(e, t('blink.errors.timeout'), t('blink.errors.network', { url: api.defaults.baseURL })));
       })
-      .finally(() => { window.clearInterval(timer); if (!ctrl.signal.aborted) setLoading(false); });
+      .finally(() => { if (!ctrl.signal.aborted) setLoading(false); });
   };
 
   const series = useMemo(() => {
@@ -69,9 +68,9 @@ export default function PhotometryPanel({ targetParams, targetLabel, pick }: Pro
 
   const nFlagged = (data?.points ?? []).filter((p) => p.flagged).length;
 
-  const tooltip = ({ active, payload }: any) => {
-    if (!active || !payload?.length) return null;
-    const p: PhotPoint = payload[0].payload.p;
+  const tooltip = ({ active, payload }: TooltipProps<number, string>) => {
+    const p = (payload?.[0]?.payload as { p?: PhotPoint } | undefined)?.p;
+    if (!active || !p) return null;
     return (
       <div className="rounded-lg bg-[#0b1224] border border-white/10 px-2 py-1.5 text-[11px] text-gray-200 font-mono">
         <div>{p.date.slice(0, 16).replace('T', ' ')} · D{p.detector}</div>
@@ -107,9 +106,7 @@ export default function PhotometryPanel({ targetParams, targetLabel, pick }: Pro
       </p>
 
       {loading && (
-        <div className="flex items-center gap-2 text-xs text-gray-400 py-6 justify-center">
-          <Loader2 className="w-4 h-4 animate-spin" /> {t('blink.phot.loading', { seconds: elapsed })}
-        </div>
+        <JobProgressBar progress={progress} onCancel={() => { ctrlRef.current?.abort(); setLoading(false); }} />
       )}
       {!loading && error && <div className="text-xs text-red-300">{error}</div>}
 

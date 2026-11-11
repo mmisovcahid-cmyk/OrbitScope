@@ -330,14 +330,23 @@ export function queryToParams(q: BlinkQuery): Record<string, string> {
 }
 
 /** Human-readable message from an axios error (FastAPI `detail` first). */
-export function errorText(e: any, timeoutMessage: string, networkMessage?: string): string {
-  const d = e?.response?.data?.detail;
+interface HttpErrorLike {
+  name?: string;
+  message?: string;
+  code?: string;
+  response?: { status?: number; data?: { detail?: unknown } };
+}
+
+export function errorText(err: unknown, timeoutMessage: string, networkMessage?: string): string {
+  const e = (err ?? {}) as HttpErrorLike;
+  if (e.name === 'JobError') return e.message ?? timeoutMessage; // already a server-side, localized message
+  const d = e.response?.data?.detail;
   if (typeof d === 'string') return d;
-  if (Array.isArray(d) && d[0]?.msg) return d[0].msg;
-  if (e?.code === 'ECONNABORTED') return timeoutMessage;
-  if (!e?.response && networkMessage) return networkMessage; // backend down or CORS-blocked
-  if (e?.response?.status === 404) return networkMessage ?? e.message;
-  return e?.message || timeoutMessage;
+  if (Array.isArray(d) && d[0] && typeof d[0] === 'object' && 'msg' in d[0]) return String((d[0] as { msg: unknown }).msg);
+  if (e.code === 'ECONNABORTED') return timeoutMessage;
+  if (!e.response && networkMessage) return networkMessage; // backend down or CORS-blocked
+  if (e.response?.status === 404) return networkMessage ?? e.message ?? timeoutMessage;
+  return e.message || timeoutMessage;
 }
 
 export function apiParams(q: BlinkQuery): Record<string, string | number> {

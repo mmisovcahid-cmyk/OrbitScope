@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, MapPin, Zap, Target, Clock, Database, GitBranch } from 'lucide-react';
+import { ArrowLeft, MapPin, Zap, Target, Database, GitBranch } from 'lucide-react';
 import StatusBadge from '../components/common/StatusBadge';
 import CoordinateDisplay from '../components/common/CoordinateDisplay';
 import LoadingSpinner from '../components/common/LoadingSpinner';

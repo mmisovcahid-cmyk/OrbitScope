@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   Radar, Search, AlertTriangle, CheckCircle2, XCircle, HelpCircle, Download, ExternalLink, Eye, EyeOff, Clock,
 } from 'lucide-react';
 import BlinkViewer from '../components/blink/BlinkViewer';
-import LoadingSpinner from '../components/common/LoadingSpinner';
+import JobProgressBar from '../components/common/JobProgressBar';
+import { JobProgress, isAbort, runJob } from '../lib/jobs';
 import { spherexService } from '../services';
 import api from '../services/api';
 import {
@@ -67,7 +68,8 @@ export default function DetectionPage() {
   const [form, setForm] = useState<Form>(() => urlForm ?? DEFAULT_FORM);
   const [result, setResult] = useState<DetectionResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
+  const [progress, setProgress] = useState<JobProgress | null>(null);
+  const ctrlRef = useRef<AbortController | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [jump, setJump] = useState<{ frame: number; nonce: number } | null>(null);
@@ -90,19 +92,17 @@ export default function DetectionPage() {
     if (!urlForm) return;
     setForm(urlForm);
     const ctrl = new AbortController();
-    setLoading(true); setError(null); setElapsed(0); setSelected(null);
-    const started = Date.now();
-    const timer = window.setInterval(() => setElapsed(Math.round((Date.now() - started) / 1000)), 1000);
-    spherexService.detect(apiFromForm(urlForm), ctrl.signal)
-      .then((res) => { setResult(res.data?.data ?? null); setReviews({}); loadSaved(); })
+    ctrlRef.current = ctrl;
+    setLoading(true); setError(null); setProgress(null); setSelected(null);
+    runJob<DetectionResult>('detect', apiFromForm(urlForm), setProgress, ctrl.signal)
+      .then((res) => { setResult(res); setReviews({}); loadSaved(); })
       .catch((e) => {
-        if (!ctrl.signal.aborted) {
-          setResult(null);
-          setError(errorText(e, t('blink.errors.timeout'), t('blink.errors.network', { url: api.defaults.baseURL })));
-        }
+        if (isAbort(e) || ctrl.signal.aborted) return;
+        setResult(null);
+        setError(errorText(e, t('blink.errors.timeout'), t('blink.errors.network', { url: api.defaults.baseURL })));
       })
-      .finally(() => { window.clearInterval(timer); if (!ctrl.signal.aborted) setLoading(false); });
-    return () => { ctrl.abort(); window.clearInterval(timer); };
+      .finally(() => { if (!ctrl.signal.aborted) setLoading(false); });
+    return () => { ctrl.abort(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.toString()]);
 
@@ -283,8 +283,10 @@ export default function DetectionPage() {
 
       {loading && (
         <div className={card}>
-          <LoadingSpinner text={t('detect.loading', { seconds: elapsed })} />
-          <p className="text-center text-[11px] text-gray-500 -mt-8 pb-4">{t('detect.loadingHint')}</p>
+          <JobProgressBar
+            progress={progress} hint={t('detect.loadingHint')}
+            onCancel={() => { ctrlRef.current?.abort(); setLoading(false); setError(t('jobs.cancelled')); }}
+          />
         </div>
       )}
       {!loading && error && (

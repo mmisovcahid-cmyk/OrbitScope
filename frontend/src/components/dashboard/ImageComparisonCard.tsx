@@ -60,7 +60,7 @@ function StarfieldCutout({
 
 export default function ImageComparisonCard() {
   const { t } = useTranslation();
-  const [epochPair, setEpochPair] = useState('May 2025 vs Dec 2025');
+  const [epochPair] = useState('May 2025 vs Dec 2025');
 
   return (
     <div className="flex-1 rounded-2xl bg-[#0b1329]/80 backdrop-blur-md border border-white/[0.08] p-4 flex flex-col justify-between shadow-xl">

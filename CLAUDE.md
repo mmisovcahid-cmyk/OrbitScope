@@ -24,7 +24,9 @@ npm install
 npm run dev       # Vite dev server
 npm run build     # tsc type-check + vite build — the main correctness check for frontend changes
 ```
-`npm run lint` is defined but ESLint is neither installed nor configured, so it won't work as-is.
+`npm run lint` runs ESLint 9 with a flat config (`eslint.config.js`, typescript-eslint + react-hooks). Errors fail; `any` is only a warning, because the older demo pages still use it. `npm run typecheck` runs `tsc --noEmit`.
+
+Docker: `docker compose up --build` serves the app on :8080. Images: `backend/Dockerfile` (uvicorn, data in the `/data` volume) and `frontend/Dockerfile` (Vite build with an empty `VITE_API_BASE`, served by nginx, which proxies `/api` to `backend:8000`). `services/api.ts` uses `??`, so an empty `VITE_API_BASE` means same origin.
 
 `start.bat` / `start.ps1` at the root launch backend and frontend in separate windows.
 
@@ -47,6 +49,14 @@ This is the only part of the app that uses real mission data; everything else st
 - The IRSA cutout service sometimes returns 503; `fetch_cutout` retries with backoff.
 - `/api/v1/spherex/photometry` measures one position in up to 96 exposures, spread over detectors and time (`select_for_photometry`). Each point's wavelength comes from that pixel's LVF wavelength via the `WCS-WAVE` table (`Cutout.wavelength_at`), so the same result gives both a spectrum and a light curve. Saturated (OVERFLOW) or mostly masked apertures are returned with `flagged: true` rather than dropped.
 - `/api/v1/spherex/overlay` (`app/services/catalog_overlay.py`) serves Gaia DR3 (ESA TAP, epoch 2016.0) and CatWISE2020 (IRSA TAP, epoch 2015.4, pm converted to mas/yr). CatWISE rows with D/P/H/O artifact flags are dropped, and motions of blended (nb>1) or low-S/N detections are zeroed. The browser propagates each marker to the date of the frame being shown.
+## Background jobs and progress
+
+- `app/services/jobs.py` (`JobManager`) runs long work as in-process asyncio tasks, at most 3 at a time. Identical requests (same kind, locale and params) share one job, and finished jobs are kept for 30 minutes.
+- Routes are in `app/api/routes/jobs.py`. `POST /api/v1/jobs {kind: blink|detect|photometry, params, locale}` validates the params with the same limits as the direct endpoints and calls the same internals (`spherex._build`, `run_detection`, `spherex_archive.photometry`).
+- Progress: library code calls `app.core.progress.report(stage, done, total)`, or `gather_with_progress` for parallel downloads. The job installs a ContextVar callback, so this works through `asyncio.gather` and `to_thread` without any signature changes. Stage names are the keys under `jobs.stage.*` in i18n.
+- Frontend: `lib/jobs.ts` `runJob()` submits a job, polls it, cancels it when the AbortSignal fires, and throws `JobError` with the server's localized message. `components/common/JobProgressBar.tsx` shows the progress. Blink, Detection, Photometry and Embed all use jobs; the direct GET endpoints stay for scripts and GIF export.
+- `spherex_archive.prune_cache()` keeps the cutout cache under `SPHEREX_CACHE_MAX_MB`. It runs at startup and after every 50 new downloads. `GET /api/v1/spherex/status` is the health endpoint.
+
 ## Real-data moving-object search (`/detection`)
 
 - `app/services/detection_service.py`: `run_detection()` gets frames from `build_blink(..., keep_arrays=True)` and runs `app/pipeline/moving_objects.py`. It then matches the results against reference catalogs and saves them through `candidate_store.py` (SQLite at `backend/data/orbitscope.db`, gitignored). Endpoints: `/api/v1/spherex/detect`, `/candidates` (GET), `/candidates/{id}` (PATCH review: unreviewed/real/artifact/unsure), `/candidates/{id}/export` (CSV).

@@ -109,6 +109,11 @@ class Settings(BaseSettings):
         description="Directory for cached SPHEREx cutouts, datalink URLs and coverage queries",
     )
 
+    SPHEREX_CACHE_MAX_MB: int = Field(
+        default=2000,
+        ge=50,
+        description="Upper bound for the SPHEREx cutout cache; oldest cutouts are pruned beyond it",
+    )
     ORBITSCOPE_DB_PATH: str = Field(
         default=str(Path(__file__).resolve().parents[2] / "data" / "orbitscope.db"),
         description="SQLite file for detection runs and reviewed candidates",

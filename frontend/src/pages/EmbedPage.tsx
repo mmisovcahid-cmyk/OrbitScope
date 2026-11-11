@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import BlinkViewer from '../components/blink/BlinkViewer';
-import LoadingSpinner from '../components/common/LoadingSpinner';
-import { spherexService } from '../services';
+import JobProgressBar from '../components/common/JobProgressBar';
 import api from '../services/api';
 import { BlinkResult, apiParams, errorText, queryFromParams, queryToParams } from '../lib/spherex';
+import { JobProgress, isAbort, runJob } from '../lib/jobs';
 
 /** Minimal, iframe-friendly blink player: /embed?target=...&fov=...&det=... */
 export default function EmbedPage() {
@@ -14,6 +14,7 @@ export default function EmbedPage() {
   const query = useMemo(() => queryFromParams(params), [params]);
   const [result, setResult] = useState<BlinkResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<JobProgress | null>(null);
 
   useEffect(() => {
     const lang = params.get('lang');
@@ -24,9 +25,12 @@ export default function EmbedPage() {
   useEffect(() => {
     if (!query) { setError(t('blink.errors.empty')); return; }
     const ctrl = new AbortController();
-    spherexService.blink(apiParams(query), ctrl.signal)
-      .then((res) => setResult(res.data?.data ?? null))
-      .catch((e) => { if (!ctrl.signal.aborted) setError(errorText(e, t('blink.errors.timeout'), t('blink.errors.network', { url: api.defaults.baseURL }))); });
+    runJob<BlinkResult>('blink', apiParams(query), setProgress, ctrl.signal)
+      .then(setResult)
+      .catch((e) => {
+        if (isAbort(e) || ctrl.signal.aborted) return;
+        setError(errorText(e, t('blink.errors.timeout'), t('blink.errors.network', { url: api.defaults.baseURL })));
+      });
     return () => ctrl.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.toString()]);
@@ -41,7 +45,7 @@ export default function EmbedPage() {
           OrbitScope ↗
         </a>
       </div>
-      {!result && !error && <LoadingSpinner text={t('blink.loadingShort')} />}
+      {!result && !error && <JobProgressBar progress={progress} />}
       {error && <div className="text-sm text-red-300">{error}</div>}
       {result && <BlinkViewer result={result} compact autoplay />}
       <div className="text-[9px] text-gray-600">NASA SPHEREx · IRSA</div>

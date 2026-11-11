@@ -37,6 +37,7 @@ from scipy.ndimage import map_coordinates
 
 from app.core.config import settings
 from app.core.logging_config import get_logger
+from app.core.progress import gather_with_progress, report
 
 import warnings
 from astropy import log as astropy_log
@@ -166,6 +167,7 @@ class SpherexArchive:
         self._coverage_cache: TTLCache = TTLCache(maxsize=256, ttl=6 * 3600)
         self._sem = asyncio.Semaphore(6)
         self._locks: dict[str, asyncio.Lock] = {}
+        self._new_downloads = 0
 
     # ------------------------------------------------------------------ utils
     @staticmethod
@@ -181,12 +183,51 @@ class SpherexArchive:
         except Exception as exc:  # cache write failures are non-fatal
             logger.warning(f"Could not persist datalink cache: {exc}")
 
+    # ------------------------------------------------------------ cache upkeep
+    def cache_stats(self) -> dict[str, Any]:
+        files = list((self.cache_dir / "cutouts").glob("*.fits"))
+        size = sum(f.stat().st_size for f in files)
+        return {"cutouts": len(files), "size_mb": round(size / 1e6, 1), "limit_mb": settings.SPHEREX_CACHE_MAX_MB,
+                "path": str(self.cache_dir)}
+
+    def prune_cache(self, max_mb: Optional[float] = None) -> dict[str, Any]:
+        """Delete the least recently used cutouts until the cache fits in ``max_mb``."""
+        limit = (max_mb if max_mb is not None else settings.SPHEREX_CACHE_MAX_MB) * 1e6
+        files = []
+        for f in (self.cache_dir / "cutouts").glob("*.fits"):
+            try:
+                st = f.stat()
+                files.append((max(st.st_atime, st.st_mtime), st.st_size, f))
+            except OSError:
+                continue
+        total = sum(s for _, s, _ in files)
+        removed = 0
+        for _, size, f in sorted(files):
+            if total <= limit:
+                break
+            try:
+                f.unlink()
+                f.with_suffix(".url").unlink(missing_ok=True)
+                total -= size
+                removed += 1
+            except OSError:
+                continue
+        if removed:
+            logger.info(f"Pruned {removed} cached cutouts; cache now {total / 1e6:.0f} MB")
+        return {"removed": removed, "size_mb": round(total / 1e6, 1)}
+
+    def _maybe_prune(self) -> None:
+        self._new_downloads += 1
+        if self._new_downloads % 50 == 0:
+            asyncio.get_running_loop().run_in_executor(None, self.prune_cache)
+
     # --------------------------------------------------------------- coverage
     async def query_frames(self, ra: float, dec: float) -> list[FrameRecord]:
         """All SPHEREx L2 frames whose footprint contains (ra, dec), sorted by time."""
         key = f"{ra:.3f}:{dec:.3f}"
         if key in self._coverage_cache:
             return self._coverage_cache[key]
+        report("coverage")
 
         disk = self.cache_dir / f"coverage_{hashlib.md5(key.encode()).hexdigest()[:16]}.json"
         if disk.exists() and time.time() - disk.stat().st_mtime < 24 * 3600:
@@ -304,6 +345,7 @@ class SpherexArchive:
                             )
                             resp.raise_for_status()
                             await asyncio.to_thread(self._store_compact, resp.content, path, url)
+                            self._maybe_prune()
                             last_exc = None
                             break
                         except (httpx.TransportError, httpx.HTTPStatusError) as exc:
@@ -440,13 +482,14 @@ class SpherexArchive:
 
         needed = {r.key: r for g in groups for r in g}
         async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=30.0), follow_redirects=True) as client:
-            results = await asyncio.gather(
-                *(self.fetch_cutout(client, r, c_ra, c_dec, cut_size) for r in needed.values())
+            results = await gather_with_progress(
+                "download", (self.fetch_cutout(client, r, c_ra, c_dec, cut_size) for r in needed.values())
             )
         cutouts = {c.record.key: c for c in results if c is not None}
         if not cutouts:
             raise SpherexError("upstream", "Could not download any SPHEREx cutouts from IRSA.")
 
+        report("assemble")
         out_frames = await asyncio.to_thread(
             self._assemble, groups, cutouts, out_wcs, size_px, ra, dec, pmra, pmdec, ref_epoch, has_pm
         )
@@ -522,7 +565,10 @@ class SpherexArchive:
         motion_deg = (math.hypot(pmra or 0.0, pmdec or 0.0) / 3.6e6) * span_yr if has_pm else 0.0
         cut_size = 0.03 + 2 * motion_deg
         async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=30.0), follow_redirects=True) as client:
-            cutouts = await asyncio.gather(*(self.fetch_cutout(client, r, c_ra, c_dec, cut_size) for r in picked))
+            cutouts = await gather_with_progress(
+                "download", (self.fetch_cutout(client, r, c_ra, c_dec, cut_size) for r in picked)
+            )
+        report("measure")
 
         points = []
         for c in cutouts:

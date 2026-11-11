@@ -9,9 +9,13 @@ OrbitScope API - Real SPHEREx blink endpoints
 """
 from __future__ import annotations
 
+import asyncio
 import base64
 import io
+import time
 from typing import Any, Optional
+
+import httpx
 
 import numpy as np
 from fastapi import APIRouter, HTTPException, Query
@@ -94,6 +98,46 @@ async def _target_from_query(
 def _raise_archive(exc: SpherexError, locale: str) -> None:
     status = 404 if exc.code in ("no_coverage", "no_detector_coverage", "no_data") else 400 if exc.code == "bad_pass" else 502
     raise HTTPException(status_code=status, detail=_msg(locale, exc.code if exc.code in MESSAGES["en"] else "upstream"))
+
+
+_status_cache: dict[str, Any] = {}
+
+
+async def _irsa_reachable() -> dict[str, Any]:
+    """Cheap TAP round-trip (cached 5 min) to tell users whether IRSA is up."""
+    now = time.time()
+    if _status_cache.get("t", 0) > now - 300:
+        return _status_cache["irsa"]
+    t0 = time.perf_counter()
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.post(spherex_archive.tap_url, data={
+                "LANG": "ADQL", "FORMAT": "csv",
+                "QUERY": "SELECT table_name FROM TAP_SCHEMA.tables WHERE table_name = 'spherex.obscore'"})
+        ok = r.status_code == 200 and "spherex.obscore" in r.text
+        info = {"reachable": ok, "latency_ms": round((time.perf_counter() - t0) * 1000), "http": r.status_code}
+    except httpx.HTTPError as exc:
+        info = {"reachable": False, "error": type(exc).__name__}
+    _status_cache.update({"t": now, "irsa": info})
+    return info
+
+
+@router.get("/status", summary="Real-data service health: IRSA, cache, candidates, jobs")
+async def status() -> dict[str, Any]:
+    from app.services.jobs import job_manager
+
+    irsa = await _irsa_reachable()
+    try:
+        counts = get_store().counts()
+    except Exception:
+        counts = {}
+    return {"success": True, "data": {
+        "irsa": irsa,
+        "cache": await asyncio.to_thread(spherex_archive.cache_stats),
+        "candidates": counts,
+        "jobs": job_manager.stats(),
+        "data_source": "NASA/IPAC IRSA - SPHEREx (collections matched by prefix 'spherex', new releases picked up automatically)",
+    }}
 
 
 @router.get("/targets", summary="Challenge test targets")

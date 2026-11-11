@@ -130,6 +130,30 @@ The first request for a new field downloads cutouts (30–90 s); after that it i
 - Candidates are stored in `backend/data/orbitscope.db`. They can be reviewed (real / artifact / unsure) and exported as CSV.
 - API: `GET /api/v1/spherex/detect?target=…&search=asteroids|proper_motion&fov=0.3&detector=1,4&pass_index=0`
 
+## 🐳 Docker (one command)
+
+```bash
+docker compose up --build
+```
+
+Open **http://localhost:8080**. nginx serves the built frontend and proxies `/api` to the backend. The SPHEREx cutout cache and the candidate database live in the `orbitscope-data` volume. The cache is capped by `SPHEREX_CACHE_MAX_MB` and older cutouts are pruned automatically.
+
+## ⚙️ Operations
+
+- **Background jobs:** long requests (blink, detection, photometry on a new field) run as jobs. The UI shows the stage, a done/total counter and a Cancel button. API: `POST /api/v1/jobs`, `GET/DELETE /api/v1/jobs/{id}`. Identical requests share one job.
+- **Health:** `GET /api/v1/spherex/status` reports IRSA reachability and latency, cache size, candidate review counts and job counts.
+- **Quality checks:**
+
+  ```bash
+  cd backend && pytest tests/ -q
+  ```
+
+  ```bash
+  cd frontend && npm run lint && npm run build
+  ```
+
+  The backend tests include real SPHEREx cutouts in `backend/tests/fixtures`.
+
 ## 🔬 Scientific Pipeline
 
 OrbitScope implements a modular astronomical detection pipeline:

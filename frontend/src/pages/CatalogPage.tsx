@@ -1,9 +1,8 @@
 import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Database, Globe, Compass, ShieldAlert, Award, ExternalLink } from 'lucide-react';
+import { Search, Database, Globe, Compass } from 'lucide-react';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorDisplay from '../components/common/ErrorDisplay';
-import CoordinateDisplay from '../components/common/CoordinateDisplay';
 import { catalogService } from '../services';
 
 export default function CatalogPage() {

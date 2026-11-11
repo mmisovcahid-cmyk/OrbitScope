@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { BookOpen, Layers, ShieldCheck, Database, Award, ExternalLink, Activity, Info } from 'lucide-react';
+import { BookOpen, Layers, ShieldCheck, Database, Award, Activity, Info } from 'lucide-react';
 
 export default function AboutPage() {
   const { t } = useTranslation();

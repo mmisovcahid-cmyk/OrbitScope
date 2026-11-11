@@ -615,5 +615,22 @@
     "measuredPm": "Measured proper motion",
     "significance": "Shift significance",
     "fluxRatio": "Brightness change (max/min)"
+  },
+  "jobs": {
+    "stage": {
+      "queued": "Waiting in queue…",
+      "starting": "Starting…",
+      "coverage": "Finding SPHEREx exposures (IRSA)…",
+      "download": "Downloading exposures",
+      "assemble": "Aligning and stacking images…",
+      "measure": "Measuring…",
+      "search": "Searching for moving sources…",
+      "catalogs": "Checking known objects (JPL / Gaia / CatWISE)…",
+      "save": "Saving candidates…",
+      "done": "Done"
+    },
+    "queued": "Other searches are running; this one starts as soon as a slot is free.",
+    "cancel": "Cancel",
+    "cancelled": "Cancelled."
   }
 }

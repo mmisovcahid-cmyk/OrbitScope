@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { Search, Sparkles, Link2, Code2, Download, ExternalLink, AlertTriangle, Satellite, Clock, Layers } from 'lucide-react';
 import BlinkViewer from '../components/blink/BlinkViewer';
 import PhotometryPanel from '../components/blink/PhotometryPanel';
-import LoadingSpinner from '../components/common/LoadingSpinner';
+import JobProgressBar from '../components/common/JobProgressBar';
+import { JobProgress, isAbort, runJob } from '../lib/jobs';
 import { spherexService } from '../services';
 import api from '../services/api';
 
@@ -39,7 +40,8 @@ export default function BlinkPage() {
   const [presets, setPresets] = useState<Preset[]>(FALLBACK_PRESETS);
   const [result, setResult] = useState<BlinkResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
+  const [progress, setProgress] = useState<JobProgress | null>(null);
+  const ctrlRef = useRef<AbortController | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [frameIdx, setFrameIdx] = useState(0);
   const [copied, setCopied] = useState<string | null>(null);
@@ -57,14 +59,17 @@ export default function BlinkPage() {
     setForm(query);
     setTargetText(query.target ?? (query.ra !== undefined ? `${query.ra} ${query.dec}` : ''));
     const ctrl = new AbortController();
-    setLoading(true); setError(null); setElapsed(0);
-    const started = Date.now();
-    const timer = window.setInterval(() => setElapsed(Math.round((Date.now() - started) / 1000)), 1000);
-    spherexService.blink(apiParams(query), ctrl.signal)
-      .then((res) => { setResult(res.data?.data ?? null); setFrameIdx(0); })
-      .catch((e) => { if (!ctrl.signal.aborted) { setResult(null); setError(errorText(e, t('blink.errors.timeout'), t('blink.errors.network', { url: API_BASE }))); } })
-      .finally(() => { window.clearInterval(timer); if (!ctrl.signal.aborted) setLoading(false); });
-    return () => { ctrl.abort(); window.clearInterval(timer); };
+    ctrlRef.current = ctrl;
+    setLoading(true); setError(null); setProgress(null);
+    runJob<BlinkResult>('blink', apiParams(query), setProgress, ctrl.signal)
+      .then((res) => { setResult(res); setFrameIdx(0); })
+      .catch((e) => {
+        if (isAbort(e) || ctrl.signal.aborted) return;
+        setResult(null);
+        setError(errorText(e, t('blink.errors.timeout'), t('blink.errors.network', { url: API_BASE })));
+      })
+      .finally(() => { if (!ctrl.signal.aborted) setLoading(false); });
+    return () => { ctrl.abort(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.toString(), i18n.language]);
 
@@ -226,8 +231,10 @@ export default function BlinkPage() {
       {/* States */}
       {loading && (
         <div className={card}>
-          <LoadingSpinner text={t('blink.loading', { seconds: elapsed })} />
-          <p className="text-center text-[11px] text-gray-500 -mt-8 pb-4">{t('blink.loadingHint')}</p>
+          <JobProgressBar
+            progress={progress} hint={t('blink.loadingHint')}
+            onCancel={() => { ctrlRef.current?.abort(); setLoading(false); setError(t('jobs.cancelled')); }}
+          />
         </div>
       )}
 

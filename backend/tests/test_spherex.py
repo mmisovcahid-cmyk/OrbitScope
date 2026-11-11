@@ -225,5 +225,35 @@ def test_unhandled_errors_are_json_with_cors(monkeypatch) -> None:
     assert res.headers.get("access-control-allow-origin") == "http://localhost:5174"
 
 
+def test_cache_prune_removes_oldest(tmp_path) -> None:
+    import os
+    import time as _t
+
+    arch = sa.SpherexArchive(cache_dir=tmp_path)
+    cut = tmp_path / "cutouts"
+    for i in range(5):
+        f = cut / f"c{i}.fits"
+        f.write_bytes(b"x" * 400_000)  # 0.4 MB each
+        old = _t.time() - (100 - i)
+        os.utime(f, (old, old))
+    assert arch.cache_stats()["cutouts"] == 5
+    res = arch.prune_cache(max_mb=1.0)
+    assert res["removed"] == 3
+    assert sorted(p.name for p in cut.glob("*.fits")) == ["c3.fits", "c4.fits"]
+
+
+def test_status_endpoint(client: TestClient, monkeypatch) -> None:
+    from app.api.routes import spherex as route
+
+    async def fake_irsa():
+        return {"reachable": True, "latency_ms": 1}
+
+    monkeypatch.setattr(route, "_irsa_reachable", fake_irsa)
+    d = client.get("/api/v1/spherex/status").json()["data"]
+    assert d["irsa"]["reachable"] is True
+    assert {"cutouts", "size_mb", "limit_mb"} <= set(d["cache"])
+    assert isinstance(d["jobs"], dict)
+
+
 def test_blink_validates_fov(client: TestClient) -> None:
     assert client.get("/api/v1/spherex/blink", params={"ra": 10, "dec": 10, "fov": 5}).status_code == 422

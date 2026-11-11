@@ -20,6 +20,7 @@ from typing import Any, Optional
 import numpy as np
 
 from app.core.logging_config import get_logger
+from app.core.progress import report
 from app.pipeline import moving_objects as mo
 from app.services.candidate_store import get_store
 from app.services.catalog_overlay import CatalogError, fetch_catalog
@@ -72,7 +73,9 @@ async def run_detection(
     dets = [tuple(f["detectors"]) for f in frames]
     pix = grid["pixscale_arcsec"]
 
+    report("search")
     result = await asyncio.to_thread(mo.search, arrays, masks, mjds, dets, pix, search, z_thresh)
+    report("catalogs")
 
     # Reference catalogs (failures are reported, never fatal).
     notes: list[str] = []
@@ -240,6 +243,7 @@ async def run_detection(
     params = {"target": tgt.get("name"), "ra": tgt["ra"], "dec": tgt["dec"], "search": search, "fov": fov_deg,
               "detectors": detectors, "pass_index": blink.get("pass_index"), "max_frames": max_frames,
               "z_thresh": z_thresh}
+    report("save")
     try:
         await asyncio.to_thread(get_store().save_run, run_id, params, summary, candidates)
     except Exception as exc:  # storage problems must not lose the result

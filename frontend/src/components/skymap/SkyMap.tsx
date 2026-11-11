@@ -32,7 +32,7 @@ function aitoff(lambda: number, phi: number): [number, number] {
 function drawStars(ctx: CanvasRenderingContext2D, w: number, h: number) {
   // Deterministic seed-like random via simple hash
   const rand = (i: number) => {
-    let x = Math.sin(i * 127.1 + 311.7) * 43758.5453;
+    const x = Math.sin(i * 127.1 + 311.7) * 43758.5453;
     return x - Math.floor(x);
   };
   for (let i = 0; i < 1200; i++) {
@@ -64,7 +64,7 @@ function drawGrid(ctx: CanvasRenderingContext2D, w: number, h: number) {
       const [ax, ay] = aitoff(lam, phi);
       const sx = w / 2 + (ax / 2) * (w * 0.45);
       const sy = h / 2 - ay * (h * 0.45);
-      ra === 0 ? ctx.moveTo(sx, sy) : ctx.lineTo(sx, sy);
+      if (ra === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
     }
     ctx.stroke();
   }
@@ -77,7 +77,7 @@ function drawGrid(ctx: CanvasRenderingContext2D, w: number, h: number) {
       const [ax, ay] = aitoff(lam, phi);
       const sx = w / 2 + (ax / 2) * (w * 0.45);
       const sy = h / 2 - ay * (h * 0.45);
-      dec === -90 ? ctx.moveTo(sx, sy) : ctx.lineTo(sx, sy);
+      if (dec === -90) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
     }
     ctx.stroke();
   }
@@ -99,7 +99,7 @@ function drawMilkyWay(ctx: CanvasRenderingContext2D, w: number, h: number) {
     const [ax, ay] = aitoff(lam, phi);
     const sx = w / 2 + (ax / 2) * (w * 0.45);
     const sy = h / 2 - ay * (h * 0.45);
-    ra === 0 ? ctx.moveTo(sx, sy) : ctx.lineTo(sx, sy);
+    if (ra === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
   }
   ctx.lineWidth = 60;
   ctx.strokeStyle = 'rgba(80,60,120,0.06)';
@@ -116,7 +116,7 @@ function drawOutline(ctx: CanvasRenderingContext2D, w: number, h: number) {
     const [ax, ay] = aitoff(lam, phi);
     const sx = w / 2 + (ax / 2) * (w * 0.45);
     const sy = h / 2 - ay * (h * 0.45);
-    dec === -90 ? ctx.moveTo(sx, sy) : ctx.lineTo(sx, sy);
+    if (dec === -90) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
   }
   for (let dec = 90; dec >= -90; dec -= 1) {
     const lam = -Math.PI;

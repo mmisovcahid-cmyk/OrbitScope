@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { GitCompare, Eye, Layers, Zap } from 'lucide-react';
+import { GitCompare, Layers } from 'lucide-react';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import SimulatedNotice from '../components/common/SimulatedNotice';
 import { skyService, observationService } from '../services';
@@ -56,7 +56,9 @@ export default function ComparisonPage() {
     try {
       const res = await observationService.compare(sel1, sel2);
       setResult(res.data?.data ?? res.data);
-    } catch { }
+    } catch (e: any) {
+      setLoadError(e?.message ?? 'Error');
+    }
     setComparing(false);
   }, [sel1, sel2]);
 

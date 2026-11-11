@@ -1,7 +1,6 @@
 import React from 'react';
 import { Calendar, Layers, Target, Activity, Clock, ArrowRight, BarChart2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
 
 export function ObservationOverviewCard() {
   return (

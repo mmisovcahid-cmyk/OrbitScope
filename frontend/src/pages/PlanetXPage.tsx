@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Orbit, AlertTriangle, BookOpen, Star } from 'lucide-react';
+import { Orbit, AlertTriangle, BookOpen } from 'lucide-react';
 import { ScatterChart, Scatter, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import LoadingSpinner from '../components/common/LoadingSpinner';
 import { planetxService } from '../services';
 
 // Known TNOs for fallback visualization
@@ -45,8 +44,6 @@ const STRENGTH_COLORS: Record<string, string> = {
 export default function PlanetXPage() {
   const { t } = useTranslation();
   const [tnos, setTnos] = useState(FALLBACK_TNOS);
-  const [loading, setLoading] = useState(false);
-
   useEffect(() => {
     (async () => {
       try {
