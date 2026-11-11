@@ -105,6 +105,21 @@ npm run dev
 
 The frontend will start at **http://localhost:5173**
 
+## ✨ SPHEREx Blink — real data time-lapse (home page)
+
+Type an object name or coordinates (e.g. `Barnard's Star`, `08h55m10.831s -7d14m42.53s`, `269.452 4.693`).
+OrbitScope fetches every real SPHEREx Level-2 exposure covering that point from NASA/IPAC IRSA, aligns them
+north-up, stacks one image per survey pass and plays them as a movie. View modes: **Blink**, **Difference**
+and **Motion colour** (older frame red, newer frame cyan). Other features: per-detector wavelength choice
+(D1–D6, 0.75–5 µm), quality-flag overlay, a proper-motion target marker, and links to the source FITS files.
+
+- Shareable URL: `http://localhost:5173/?target=Barnard%27s+Star&fov=0.1&det=3`
+- Embed: `http://localhost:5173/embed?target=WISE+0855-0714&det=6` (iframe-friendly)
+- API: `GET /api/v1/spherex/blink?target=...|ra=&dec=&fov=0.1&detector=3&mode=epoch|frames`
+  and `GET /api/v1/spherex/blink.gif?...` (animated GIF)
+
+The first request for a new field downloads cutouts (30–90 s); after that it is served from `backend/cache/spherex/`.
+
 ## 🔬 Scientific Pipeline
 
 OrbitScope implements a modular astronomical detection pipeline:

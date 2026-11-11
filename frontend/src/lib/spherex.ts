@@ -1,0 +1,238 @@
+// Helpers for the real-data SPHEREx blink viewer: types, decoding, stretching, colour maps, WCS.
+
+export interface BlinkMember {
+  obs_id: string;
+  collection: string;
+  detector: number;
+  mjd: number;
+  date: string;
+  wavelength_um: [number, number];
+  wavelength_center_um: number | null;
+  url: string;
+}
+
+export interface BlinkFrame {
+  index: number;
+  mjd: number;
+  date: string;
+  date_start: string;
+  date_end: string;
+  n_frames: number;
+  detectors: number[];
+  wavelength_um: [number, number] | null;
+  members: BlinkMember[];
+  flags: Record<string, number>;
+  masked_fraction: number;
+  target_px: [number, number] | null;
+  data: string;
+  mask: string;
+}
+
+export interface BlinkResult {
+  target: {
+    ra: number; dec: number; pmra: number | null; pmdec: number | null; ref_epoch: number;
+    center_ra: number; center_dec: number; name: string | null; resolver: string | null; note?: string | null;
+  };
+  grid: { width: number; height: number; pixscale_arcsec: number; fov_deg: number; crpix: [number, number]; ra: number; dec: number };
+  coverage: {
+    total_frames: number; by_detector: Record<string, number>; collections: string[]; n_epochs: number;
+    epochs: { start: string; end: string; n_frames: number }[]; date_min: string | null; date_max: string | null;
+  };
+  mode: 'epoch' | 'frames';
+  detectors: number[];
+  frames: BlinkFrame[];
+  stretch_hint: { vmin: number; vmax: number };
+  units: string;
+  source: string;
+  is_simulated: boolean;
+  elapsed_s: number;
+}
+
+export interface DecodedFrame {
+  meta: BlinkFrame;
+  values: Float32Array; // row 0 = south edge
+  mask: Uint8Array; // 1 = flagged / filled pixel
+}
+
+export interface BlinkQuery {
+  target?: string;
+  ra?: number;
+  dec?: number;
+  fov: number;
+  detector: string;
+  mode: 'epoch' | 'frames';
+  per_epoch: number;
+  max_frames: number;
+}
+
+export const DEFAULT_QUERY: BlinkQuery = { fov: 0.1, detector: '3', mode: 'epoch', per_epoch: 4, max_frames: 16 };
+
+export const DETECTOR_INFO: Record<string, string> = {
+  '1': '0.75–1.11 µm',
+  '2': '1.10–1.65 µm',
+  '3': '1.63–2.42 µm',
+  '4': '2.42–3.82 µm',
+  '5': '3.82–4.42 µm',
+  '6': '4.41–5.01 µm',
+  all: '0.75–5.0 µm',
+};
+
+export function decodeFrames(res: BlinkResult): DecodedFrame[] {
+  const n = res.grid.width * res.grid.height;
+  return res.frames.map((f) => {
+    const raw = atob(f.data);
+    const buf = new ArrayBuffer(raw.length);
+    const u8 = new Uint8Array(buf);
+    for (let i = 0; i < raw.length; i++) u8[i] = raw.charCodeAt(i);
+    const values = new Float32Array(buf);
+    const packed = atob(f.mask);
+    const mask = new Uint8Array(n);
+    for (let i = 0; i < n; i++) {
+      const byte = packed.charCodeAt(i >> 3);
+      mask[i] = (byte >> (7 - (i & 7))) & 1;
+    }
+    return { meta: f, values, mask };
+  });
+}
+
+/** Percentile over finite values (sub-sampled for speed). */
+export function percentiles(arrays: Float32Array[], ps: number[], abs = false): number[] {
+  const sample: number[] = [];
+  const total = arrays.reduce((s, a) => s + a.length, 0);
+  const step = Math.max(1, Math.floor(total / 60000));
+  let k = 0;
+  for (const a of arrays) {
+    for (let i = 0; i < a.length; i++, k++) {
+      if (k % step) continue;
+      const v = a[i];
+      if (Number.isFinite(v)) sample.push(abs ? Math.abs(v) : v);
+    }
+  }
+  if (!sample.length) return ps.map(() => 0);
+  sample.sort((x, y) => x - y);
+  return ps.map((p) => sample[Math.min(sample.length - 1, Math.max(0, Math.round((p / 100) * (sample.length - 1))))]);
+}
+
+export type StretchKind = 'asinh' | 'linear' | 'log' | 'sqrt';
+export type ColorMapKind = 'gray' | 'inferno' | 'viridis' | 'invert';
+
+export function stretchValue(x: number, kind: StretchKind): number {
+  const v = Math.min(1, Math.max(0, x));
+  switch (kind) {
+    case 'linear': return v;
+    case 'sqrt': return Math.sqrt(v);
+    case 'log': return Math.log10(1 + 999 * v) / 3;
+    default: return Math.asinh(10 * v) / Math.asinh(10);
+  }
+}
+
+const STOPS: Record<string, [number, number, number][]> = {
+  inferno: [[0, 0, 4], [40, 11, 84], [101, 21, 110], [159, 42, 99], [212, 72, 66], [245, 125, 21], [250, 193, 39], [252, 255, 164]],
+  viridis: [[68, 1, 84], [70, 50, 127], [54, 92, 141], [39, 127, 142], [31, 161, 135], [74, 194, 109], [159, 218, 58], [253, 231, 37]],
+  diverging: [[33, 102, 172], [103, 169, 207], [209, 229, 240], [247, 247, 247], [253, 219, 199], [239, 138, 98], [178, 24, 43]],
+};
+
+export function buildLut(kind: ColorMapKind | 'diverging'): Uint8ClampedArray {
+  const lut = new Uint8ClampedArray(256 * 3);
+  for (let i = 0; i < 256; i++) {
+    const t = i / 255;
+    let r: number, g: number, b: number;
+    if (kind === 'gray') { r = g = b = i; }
+    else if (kind === 'invert') { r = g = b = 255 - i; }
+    else {
+      const stops = STOPS[kind];
+      const pos = t * (stops.length - 1);
+      const lo = Math.floor(pos), hi = Math.min(stops.length - 1, lo + 1), f = pos - lo;
+      r = stops[lo][0] + (stops[hi][0] - stops[lo][0]) * f;
+      g = stops[lo][1] + (stops[hi][1] - stops[lo][1]) * f;
+      b = stops[lo][2] + (stops[hi][2] - stops[lo][2]) * f;
+    }
+    lut[i * 3] = r; lut[i * 3 + 1] = g; lut[i * 3 + 2] = b;
+  }
+  return lut;
+}
+
+/** Pixel (x right, y up, 0-based) -> RA/Dec on the north-up TAN grid. */
+export function pixelToWorld(x: number, y: number, grid: BlinkResult['grid']): [number, number] {
+  const d2r = Math.PI / 180;
+  const scale = grid.pixscale_arcsec / 3600;
+  const xi = -(x - grid.crpix[0]) * scale * d2r;
+  const eta = (y - grid.crpix[1]) * scale * d2r;
+  const dec0 = grid.dec * d2r;
+  const den = Math.cos(dec0) - eta * Math.sin(dec0);
+  const ra = grid.ra + Math.atan2(xi, den) / d2r;
+  const dec = Math.atan2(Math.sin(dec0) + eta * Math.cos(dec0), Math.sqrt(xi * xi + den * den)) / d2r;
+  return [((ra % 360) + 360) % 360, dec];
+}
+
+export function formatRA(deg: number): string {
+  const h = deg / 15;
+  const hh = Math.floor(h);
+  const m = (h - hh) * 60;
+  const mm = Math.floor(m);
+  const ss = (m - mm) * 60;
+  return `${String(hh).padStart(2, '0')}h${String(mm).padStart(2, '0')}m${ss.toFixed(2).padStart(5, '0')}s`;
+}
+
+export function formatDec(deg: number): string {
+  const sign = deg < 0 ? '-' : '+';
+  const a = Math.abs(deg);
+  const dd = Math.floor(a);
+  const m = (a - dd) * 60;
+  const mm = Math.floor(m);
+  const ss = (m - mm) * 60;
+  return `${sign}${String(dd).padStart(2, '0')}°${String(mm).padStart(2, '0')}′${ss.toFixed(1).padStart(4, '0')}″`;
+}
+
+export function queryFromParams(p: URLSearchParams): BlinkQuery | null {
+  const target = p.get('target') || undefined;
+  const ra = p.get('ra') !== null ? Number(p.get('ra')) : undefined;
+  const dec = p.get('dec') !== null ? Number(p.get('dec')) : undefined;
+  const hasCoords = ra !== undefined && dec !== undefined && Number.isFinite(ra) && Number.isFinite(dec);
+  if (!target && !hasCoords) return null;
+  const num = (k: string, d: number, lo: number, hi: number) => {
+    const v = Number(p.get(k));
+    return p.get(k) !== null && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d;
+  };
+  const det = p.get('det') || DEFAULT_QUERY.detector;
+  return {
+    target,
+    ra: hasCoords ? ra : undefined,
+    dec: hasCoords ? dec : undefined,
+    fov: num('fov', DEFAULT_QUERY.fov, 0.02, 0.5),
+    detector: /^(all|[1-6](,[1-6])*)$/.test(det) ? det : DEFAULT_QUERY.detector,
+    mode: p.get('mode') === 'frames' ? 'frames' : 'epoch',
+    per_epoch: Math.round(num('per', DEFAULT_QUERY.per_epoch, 1, 12)),
+    max_frames: Math.round(num('max', DEFAULT_QUERY.max_frames, 2, 48)),
+  };
+}
+
+export function queryToParams(q: BlinkQuery): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (q.target) out.target = q.target;
+  if (q.ra !== undefined && q.dec !== undefined) { out.ra = q.ra.toFixed(6); out.dec = q.dec.toFixed(6); }
+  out.fov = String(q.fov);
+  out.det = q.detector;
+  out.mode = q.mode;
+  if (q.mode === 'epoch') out.per = String(q.per_epoch);
+  else out.max = String(q.max_frames);
+  return out;
+}
+
+/** Human-readable message from an axios error (FastAPI `detail` first). */
+export function errorText(e: any, timeoutMessage: string): string {
+  const d = e?.response?.data?.detail;
+  if (typeof d === 'string') return d;
+  if (Array.isArray(d) && d[0]?.msg) return d[0].msg;
+  if (e?.code === 'ECONNABORTED') return timeoutMessage;
+  return e?.message || timeoutMessage;
+}
+
+export function apiParams(q: BlinkQuery): Record<string, string | number> {
+  const out: Record<string, string | number> = {
+    fov: q.fov, detector: q.detector, mode: q.mode, per_epoch: q.per_epoch, max_frames: q.max_frames,
+  };
+  if (q.ra !== undefined && q.dec !== undefined) { out.ra = q.ra; out.dec = q.dec; }
+  if (q.target) out.target = q.target;
+  return out;
+}

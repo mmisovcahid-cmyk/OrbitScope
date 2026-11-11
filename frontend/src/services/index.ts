@@ -45,6 +45,20 @@ export const planetxService = {
   getRegions: () => api.get('/api/v1/planetx/regions', { params: { locale: locale() } }),
 };
 
+// Real SPHEREx data. The first request for a field downloads cutouts from IRSA (can take 1-2 min).
+export const spherexService = {
+  targets: () => api.get('/api/v1/spherex/targets'),
+  resolve: (q: string) => api.get('/api/v1/spherex/resolve', { params: { q, locale: locale() } }),
+  coverage: (ra: number, dec: number) =>
+    api.get('/api/v1/spherex/coverage', { params: { ra, dec, locale: locale() }, timeout: 240000 }),
+  blink: (params: Record<string, string | number>, signal?: AbortSignal) =>
+    api.get('/api/v1/spherex/blink', { params: { ...params, locale: locale() }, timeout: 300000, signal }),
+  gifUrl: (params: Record<string, string | number>) => {
+    const qs = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString();
+    return `${api.defaults.baseURL}/api/v1/spherex/blink.gif?${qs}`;
+  },
+};
+
 export const systemService = {
   health: () => api.get('/api/v1/system/health'),
   status: () => api.get('/api/v1/system/status'),

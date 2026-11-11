@@ -1,16 +1,14 @@
-import React, { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
+  Sparkles,
   Telescope,
   Crosshair,
+  GitCompare,
   Orbit,
   BarChart2,
   BookOpen,
-  Sun,
-  Moon,
   Users,
-  ChevronDown,
   Globe
 } from 'lucide-react';
 import { OrbitScopeLogo, NasaLogo, SpherexSatelliteIllustration } from './Icons';
@@ -18,29 +16,31 @@ import { OrbitScopeLogo, NasaLogo, SpherexSatelliteIllustration } from './Icons'
 export default function Layout() {
   const { t, i18n } = useTranslation();
   const location = useLocation();
-  const [isDark, setIsDark] = useState(true);
 
   const toggleLanguage = () => {
     i18n.changeLanguage(i18n.language === 'en' ? 'az' : 'en');
   };
 
   const navTabs = [
-    { to: '/', label: 'Sky Explorer' },
-    { to: '/detection', label: 'Object Tracking' },
-    { to: '/planetx', label: 'Planet X Research' },
-    { to: '/about', label: 'About' },
+    { to: '/', label: t('nav.blink') },
+    { to: '/dashboard', label: t('nav.dashboard') },
+    { to: '/detection', label: t('nav.detection') },
+    { to: '/planetx', label: t('nav.planetx') },
+    { to: '/about', label: t('nav.about') },
   ];
 
   const sidebarLinks = [
-    { to: '/', icon: Telescope, label: 'Sky Explorer' },
-    { to: '/detection', icon: Crosshair, label: 'Moving Objects' },
-    { to: '/planetx', icon: Orbit, label: 'Planet X' },
-    { to: '/catalog', icon: BarChart2, label: 'Data & Insights' },
-    { to: '/about', icon: BookOpen, label: 'Methodology' },
+    { to: '/', icon: Sparkles, label: t('nav.blink') },
+    { to: '/dashboard', icon: Telescope, label: t('nav.dashboard') },
+    { to: '/detection', icon: Crosshair, label: t('nav.detection') },
+    { to: '/comparison', icon: GitCompare, label: t('nav.comparison') },
+    { to: '/planetx', icon: Orbit, label: t('nav.planetx') },
+    { to: '/catalog', icon: BarChart2, label: t('nav.catalog') },
+    { to: '/about', icon: BookOpen, label: t('nav.about') },
   ];
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#060a14] text-gray-200 overflow-hidden font-sans select-none">
+    <div className="flex flex-col h-screen w-full bg-[#060a14] text-gray-200 overflow-hidden font-sans">
       {/* ============================================================ */}
       {/* TOP HEADER */}
       {/* ============================================================ */}
@@ -68,7 +68,7 @@ export default function Layout() {
         </div>
 
         {/* Center: Top Navigation Tabs */}
-        <nav className="hidden md:flex items-center gap-8">
+        <nav className="hidden lg:flex items-center gap-6 xl:gap-8 whitespace-nowrap">
           {navTabs.map((tab) => {
             const isActive = location.pathname === tab.to;
             return (
@@ -91,16 +91,7 @@ export default function Layout() {
         </nav>
 
         {/* Right: Controls & Space Apps pill */}
-        <div className="flex items-center gap-4">
-          {/* Theme toggle */}
-          <button
-            onClick={() => setIsDark(!isDark)}
-            className="p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
-            title="Toggle theme"
-          >
-            {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          </button>
-
+        <div className="flex items-center gap-2 md:gap-4">
           {/* Language toggle (AZ / EN) */}
           <button
             onClick={toggleLanguage}
@@ -111,10 +102,9 @@ export default function Layout() {
           </button>
 
           {/* NASA Space Apps pill button */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-sky-500/10 hover:bg-sky-500/15 border border-sky-500/20 text-sky-400 text-xs font-medium cursor-pointer transition-colors">
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs font-medium">
             <Users className="w-3.5 h-3.5" />
             <span>NASA Space Apps</span>
-            <ChevronDown className="w-3 h-3 text-sky-400/70" />
           </div>
         </div>
       </header>
@@ -126,7 +116,7 @@ export default function Layout() {
         {/* ============================================================ */}
         {/* LEFT SIDEBAR */}
         {/* ============================================================ */}
-        <aside className="w-56 border-r border-white/[0.08] bg-[#070b18]/70 backdrop-blur-md flex flex-col justify-between p-4 shrink-0 z-40 relative">
+        <aside className="hidden md:flex w-56 border-r border-white/[0.08] bg-[#070b18]/70 backdrop-blur-md flex flex-col justify-between p-4 shrink-0 z-40 relative">
           {/* Top navigation buttons */}
           <div className="space-y-1.5">
             {sidebarLinks.map((link) => {
@@ -183,7 +173,20 @@ export default function Layout() {
         {/* ============================================================ */}
         {/* MAIN OUTLET CONTAINER */}
         {/* ============================================================ */}
-        <main className="flex-1 overflow-y-auto bg-[#060a14] relative">
+        <main className="flex-1 overflow-y-auto bg-[#060a14] relative min-w-0">
+          {/* Mobile navigation (sidebar is hidden below md) */}
+          <nav className="md:hidden flex gap-1 overflow-x-auto px-3 py-2 border-b border-white/[0.08] bg-[#070b18]">
+            {sidebarLinks.map((link) => (
+              <NavLink
+                key={link.to}
+                to={link.to}
+                end={link.to === '/'}
+                className={({ isActive }) => `shrink-0 px-3 py-1.5 rounded-lg text-xs ${isActive ? 'bg-sky-500/20 text-sky-300' : 'text-gray-400'}`}
+              >
+                {link.label}
+              </NavLink>
+            ))}
+          </nav>
           <Outlet />
         </main>
       </div>

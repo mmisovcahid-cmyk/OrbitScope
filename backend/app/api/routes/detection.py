@@ -137,7 +137,12 @@ async def run_detection(
 
         if pipeline_manager and hasattr(pipeline_manager, "run_detection"):
             try:
-                result = await pipeline_manager.run_detection(payload)
+                result = await pipeline_manager.run_detection(
+                    observation_ids=payload.observation_ids,
+                    detection_sigma=payload.detection_sigma,
+                    match_radius_arcsec=getattr(payload, "match_radius_arcsec", None),
+                    locale=locale,
+                )
             except Exception as e:
                 logger.warning(f"pipeline_manager.run_detection failed, using fallback: {e}")
 

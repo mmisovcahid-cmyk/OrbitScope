@@ -2,6 +2,16 @@
 
 *Tarix: 2026-11-11 · Branch: `dev/full-system`*
 
+## 0. Vəziyyət (2026-11-12)
+
+| Faza | Vəziyyət |
+|---|---|
+| **0 — Təmizlik** | ✅ Detection route səhvi düzəldildi və `pipeline_manager` singleton-u əlavə olundu, real pipeline artıq işləyir (sintetik kadrlarda, `[SIMULATED]` etiketi ilə). Port 5173-ə keçirildi, code-splitting əlavə olundu, naviqasiya i18n-ə keçirildi, işləməyən tema düyməsi silindi, səhifələrə padding və mobil naviqasiya əlavə olundu. ⏳ ESLint quraşdırılmayıb. |
+| **1 — Real SPHEREx blink MVP** | ✅ Hazırdır, 5 sınaq hədəfində yoxlanıldı. ⚠️ WISE 0855 D6-da çox zəifdir: hər keçidə 4 ekspozisiya toplandıqda gözlə görmək çətindir. |
+| 2 — Elmi alətlər | Qismən: Fərq və Hərəkət rəngi rejimləri, bayraq maskası və bayraq statistikası hazırdır. ⏳ Aladin/Gaia/WISE overlay, spektr, işıq əyrisi. |
+| 3 — Real məlumatda aşkarlama | ⏳ |
+| 4 — İstehsal | Qismən: retry, disk keşi, yeni buraxılışların avtomatik daxil olması. ⏳ Fon tapşırıqları və irəliləyiş, Docker. |
+
 ## 1. Çağırışın tələbi (qısa)
 
 İstifadəçi RA/Dec daxil edir → alət həmin sahənin **SPHEREx şəkillərini zaman ardıcıllığı ilə qısa video (blink) kimi** göstərir → hərəkət edən obyektlər gözlə asan görünür.

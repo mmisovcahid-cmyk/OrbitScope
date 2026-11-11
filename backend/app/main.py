@@ -16,6 +16,7 @@ from app.api.routes.detection import router as detection_router
 from app.api.routes.observations import router as observations_router
 from app.api.routes.planetx import router as planetx_router
 from app.api.routes.sky import router as sky_router
+from app.api.routes.spherex import router as spherex_router
 from app.api.routes.system import router as system_router
 from app.core.config import settings
 from app.core.logging_config import get_logger, setup_logging
@@ -111,6 +112,7 @@ app.add_middleware(
 )
 
 # Mount all API routers
+app.include_router(spherex_router)
 app.include_router(sky_router)
 app.include_router(observations_router)
 app.include_router(detection_router)

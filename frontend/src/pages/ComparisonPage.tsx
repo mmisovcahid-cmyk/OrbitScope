@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GitCompare, Eye, Layers, Zap } from 'lucide-react';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import SimulatedNotice from '../components/common/SimulatedNotice';
 import { skyService, observationService } from '../services';
 
 type Mode = 'side' | 'overlay' | 'blink' | 'difference';
@@ -17,19 +18,30 @@ export default function ComparisonPage() {
   const [loading, setLoading] = useState(true);
   const [comparing, setComparing] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [ra, setRa] = useState('83.82');
+  const [dec, setDec] = useState('-5.39');
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await skyService.getObservations(83.82, -5.39, 1.5);
-        const d = res.data?.data ?? res.data ?? [];
-        const list = Array.isArray(d) ? d : [];
-        setObservations(list);
-        if (list.length >= 2) { setSel1(list[0].id); setSel2(list[1].id); }
-      } catch { }
-      setLoading(false);
-    })();
-  }, []);
+  const loadRegion = useCallback(async (raDeg: number, decDeg: number) => {
+    if (!Number.isFinite(raDeg) || !Number.isFinite(decDeg) || raDeg < 0 || raDeg >= 360 || decDeg < -90 || decDeg > 90) {
+      setLoadError(t('errors.invalidCoordinates', { defaultValue: 'Invalid coordinates' }));
+      return;
+    }
+    setLoadError(null);
+    setResult(null);
+    try {
+      const res = await skyService.getObservations(raDeg, decDeg, 1.5);
+      const d = res.data?.data ?? res.data ?? [];
+      const list = Array.isArray(d) ? d : [];
+      setObservations(list);
+      if (list.length >= 2) { setSel1(list[0].id); setSel2(list[1].id); }
+    } catch (e: any) {
+      setLoadError(e?.message ?? 'Error');
+    }
+    setLoading(false);
+  }, [t]);
+
+  useEffect(() => { loadRegion(83.82, -5.39); }, [loadRegion]);
 
   // Blink mode timer
   useEffect(() => {
@@ -54,7 +66,7 @@ export default function ComparisonPage() {
   const obs2 = observations.find((o: any) => o.id === sel2);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 p-4 md:p-6">
       <div>
         <h1 className="text-2xl font-bold text-white flex items-center gap-2">
           <GitCompare className="w-6 h-6 text-blue-400" /> {t('comparison.title')}
@@ -62,8 +74,27 @@ export default function ComparisonPage() {
         <p className="text-sm text-gray-500 mt-1">{t('comparison.subtitle')}</p>
       </div>
 
+      <SimulatedNotice />
+
       {/* Controls */}
       <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
+        <div className="flex flex-wrap gap-4 items-end mb-4">
+          <div>
+            <label className="text-[11px] text-gray-500">{t('detection.regionSelector.ra')}</label>
+            <input value={ra} onChange={(e) => setRa(e.target.value)} inputMode="decimal"
+              className="block mt-1 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-sm text-white w-32" />
+          </div>
+          <div>
+            <label className="text-[11px] text-gray-500">{t('detection.regionSelector.dec')}</label>
+            <input value={dec} onChange={(e) => setDec(e.target.value)} inputMode="decimal"
+              className="block mt-1 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-sm text-white w-32" />
+          </div>
+          <button onClick={() => loadRegion(parseFloat(ra), parseFloat(dec))}
+            className="px-4 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-sm text-white">
+            {t('detection.regionSelector.search')}
+          </button>
+          {loadError && <span className="text-xs text-red-300">{loadError}</span>}
+        </div>
         <div className="flex flex-wrap gap-4 items-end">
           <div>
             <label className="text-[11px] text-gray-500">{t('comparison.controls.observation1')}</label>

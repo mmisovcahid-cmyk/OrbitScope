@@ -28,7 +28,23 @@ npm run build     # tsc type-check + vite build — the main correctness check f
 
 `start.bat` / `start.ps1` at the root launch backend and frontend in separate windows.
 
-Port note: README and start scripts say the frontend runs on 5173, but `vite.config.ts` sets `server.port: 3000` (both are in the backend's CORS list). The frontend calls the backend directly via `VITE_API_BASE` (default `http://localhost:8000`) in `src/services/api.ts`; the Vite `/api` proxy exists but is not what the axios client uses.
+The Vite dev server runs on 5173. The frontend calls the backend directly via `VITE_API_BASE` (default `http://localhost:8000`) in `src/services/api.ts`; the Vite `/api` proxy exists but is not what the axios client uses.
+
+## Real SPHEREx data path (the main feature)
+
+This is the only part of the app that uses real mission data; everything else still runs on the simulated pipeline.
+
+- `app/services/spherex_archive.py`:
+  1. Queries IRSA TAP `spherex.obscore` with `CONTAINS(POINT(ra,dec), s_region)`. Collections are matched by the `spherex` prefix, so new releases are picked up without code changes.
+  2. Resolves each frame's Level-2 FITS URL through IRSA datalink.
+  3. Downloads IBE cutouts (`?center=&size=`), stores them compactly, and drops the ~5 MB PSF cube.
+  4. Subtracts ZODI and the local sky, masks FLAGS bits, reprojects onto a north-up TAN grid with SIP-aware `map_coordinates`, and does an inverse-variance coadd per survey pass (frames >30 days apart are separate passes). It also fills saturated star cores.
+  5. Returns float32 frames as base64; the browser does stretching, colour maps, difference and motion modes.
+- Everything is cached under `backend/cache/spherex/` (gitignored). The first request for a new field takes 30–90 s; repeats are instant.
+- `app/services/target_resolver.py` accepts decimal or sexagesimal coordinates, the five challenge targets (Gaia DR3/SIMBAD positions + proper motion), CDS Sesame (with a CfA mirror) and NED. High-PM targets are propagated to the SPHEREx epoch.
+- Routes are in `app/api/routes/spherex.py`: `/api/v1/spherex/{targets,resolve,coverage,blink,blink.gif}`.
+- Frontend: `pages/BlinkPage.tsx` (`/`), `pages/EmbedPage.tsx` (`/embed`, iframe-friendly), `components/blink/BlinkViewer.tsx`, `lib/spherex.ts`. The URL query (`target, ra, dec, fov, det, mode, per, max`) is the source of truth, so links are shareable.
+- The IRSA cutout service sometimes returns 503; `fetch_cutout` retries with backoff.
 
 ## Backend architecture
 

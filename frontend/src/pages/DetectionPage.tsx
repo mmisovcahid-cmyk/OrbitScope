@@ -5,6 +5,7 @@ import { Radar, Play, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import StatusBadge from '../components/common/StatusBadge';
 import CoordinateDisplay from '../components/common/CoordinateDisplay';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import SimulatedNotice from '../components/common/SimulatedNotice';
 import { skyService, detectionService } from '../services';
 
 const PIPELINE_STAGES = [
@@ -80,13 +81,15 @@ export default function DetectionPage() {
   const candidates = result?.candidates ?? [];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 p-4 md:p-6">
       <div>
         <h1 className="text-2xl font-bold text-white flex items-center gap-2">
           <Radar className="w-6 h-6 text-blue-400" /> {t('detection.title')}
         </h1>
         <p className="text-sm text-gray-500 mt-1">{t('detection.subtitle')}</p>
       </div>
+
+      <SimulatedNotice />
 
       {/* Region Selector */}
       <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">

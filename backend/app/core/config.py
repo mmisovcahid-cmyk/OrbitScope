@@ -4,6 +4,7 @@ OrbitScope Backend Configuration
 Loads and validates application settings using pydantic-settings BaseSettings.
 Reads environment variables or .env file with production-ready defaults.
 """
+from pathlib import Path
 from typing import List, Union
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -100,6 +101,12 @@ class Settings(BaseSettings):
         default=5.0,
         gt=0.0,
         description="Default cross-match association radius in arcseconds",
+    )
+
+    # --- SPHEREx archive (real data) ---
+    SPHEREX_CACHE_DIR: str = Field(
+        default=str(Path(__file__).resolve().parents[2] / "cache" / "spherex"),
+        description="Directory for cached SPHEREx cutouts, datalink URLs and coverage queries",
     )
 
     # --- Logging Configuration ---

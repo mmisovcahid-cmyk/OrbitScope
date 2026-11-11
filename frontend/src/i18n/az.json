@@ -5,6 +5,7 @@
     "description": "NASA SPHEREx astronomik müşahidə monitorinqi və hərəkət edən obyekt aşkarlama platforması"
   },
   "nav": {
+    "blink": "SPHEREx Blink",
     "dashboard": "Səma Tədqiqatçısı",
     "detection": "Aşkarlama",
     "analysis": "Təhlil",
@@ -361,7 +362,8 @@
     "language": {
       "en": "English",
       "az": "Azərbaycan"
-    }
+    },
+    "simulatedNotice": "Bu səhifə simulyasiya edilmiş demo məlumatla işləyir ([SIMULATED] işarəli). Real SPHEREx şəkilləri üçün bura keçin:"
   },
   "status": {
     "known_object": "Məlum Obyekt",
@@ -382,7 +384,7 @@
     "unauthorized": "Bu əməliyyatı yerinə yetirmək icazəniz yoxdur.",
     "timeout": "Sorğunun vaxtı keçdi. Yenidən cəhd edin.",
     "rateLimited": "Çox sayda sorğu. Zəhmət olmasa bir az gözləyin.",
-    "invalidCoordinates": "Yanlış koordinatlar. DE 0-360, Dek -90-dan +90-a olmalıdır.",
+    "invalidCoordinates": "Yanlış koordinatlar: RA 0–360°, Dec −90…+90° aralığında olmalıdır.",
     "pipelineError": "Aşkarlama boru xəttində xəta baş verdi.",
     "noObservationsSelected": "Boru xəttini işə salmadan əvvəl müşahidələr seçin."
   },
@@ -400,5 +402,100 @@
     "aphelion": "Günəşdən ən uzaq məsafə",
     "neo": "Yer Yaxını Obyekt: perihelion məsafəsi 1.3 AV-dan az",
     "pha": "Potensial Təhlükəli Asteroid: mütləq parlaqlıq ≤ 22 və MOID ≤ 0.05 AV"
+  },
+  "blink": {
+    "title": "SPHEREx Zaman Görüntüləyicisi",
+    "subtitle": "Səma koordinatı və ya obyekt adı daxil edin. OrbitScope həmin nöqtənin bütün real SPHEREx şəkillərini NASA/IPAC IRSA-dan yükləyir, onları üst-üstə düzür və qısa video kimi oynadır ki, hərəkət edən və dəyişən obyektlər asanlıqla görünsün.",
+    "realData": "REAL SPHEREx MƏLUMATI",
+    "loading": "SPHEREx şəkilləri IRSA-dan yüklənir… {{seconds}} san",
+    "loadingShort": "SPHEREx şəkilləri yüklənir…",
+    "loadingHint": "Yeni sahə üçün ilk sorğu 1–2 dəqiqə çəkə bilər. Təkrar baxışlar dərhal açılır (keş).",
+    "search": {
+      "label": "Obyekt adı və ya koordinatlar",
+      "placeholder": "Barnard's Star · 08h55m10.831s -7d14m42.53s · 269.452 4.693",
+      "button": "Göstər",
+      "fov": "Baxış sahəsi",
+      "detector": "Detektor (dalğa uzunluğu)",
+      "allDetectors": "Bütün detektorlar",
+      "mode": "Kadrlar",
+      "modeEpoch": "Hər müşahidə keçidi üçün bir toplanmış şəkil",
+      "modeFrames": "Ayrı-ayrı ekspozisiyalar",
+      "perEpoch": "Hər keçiddə toplanan ekspozisiya",
+      "maxFrames": "Maks. ekspozisiya",
+      "tryTargets": "Sınaq hədəfləri:"
+    },
+    "errors": {
+      "empty": "Obyekt adı və ya koordinat daxil edin.",
+      "timeout": "Sorğu çox uzun çəkdi. IRSA məşğul ola bilər; yenidən cəhd edin və ya kiçik sahə seçin."
+    },
+    "intro": {
+      "title": "Necə işləyir",
+      "step1": "Obyekt adını (məs. Barnard's Star) və ya RA/Dec koordinatlarını onluq və ya saat-dəqiqə-saniyə formatında yazın, ya da sınaq hədəfini seçin.",
+      "step2": "OrbitScope həmin nöqtəni əhatə edən bütün SPHEREx ekspozisiyalarını tapır, zodiakal işığı çıxır, bayraqlı pikselləri maskalayır və şəkilləri şimal yuxarı olmaqla üst-üstə düzür.",
+      "step3": "Ardıcıllığı oynadın. Hərəkət edən obyektlər kadrlar arasında yerini dəyişir, dəyişkən ulduzların parlaqlığı dəyişir. Dəyişiklikləri qabartmaq üçün Fərq və ya Hərəkət rəngi rejimindən istifadə edin.",
+      "note": "Məlumat: NASA SPHEREx Level-2 şəkilləri, NASA/IPAC IRSA vasitəsilə. Yeni ictimai buraxılışlar avtomatik daxil olur. Linkləri paylaşmaq və saytlara yerləşdirmək olar."
+    },
+    "panels": {
+      "target": "Hədəf",
+      "customPosition": "İstifadəçi mövqeyi",
+      "properMotion": "Xüsusi hərəkət",
+      "resolver": "Mövqe mənbəyi",
+      "frame": "Kadr {{n}} / {{total}}",
+      "date": "Tarix",
+      "exposures": "Toplanmış ekspozisiyalar",
+      "detectors": "Detektorlar",
+      "wavelength": "Dalğa uzunluğu",
+      "masked": "Bayraqlı piksellər",
+      "flags": "Bu kəsikdəki keyfiyyət bayraqları",
+      "sourceFiles": "Mənbə FITS faylları ({{n}})",
+      "coverage": "SPHEREx əhatəsi",
+      "coverageSummary": "{{epochs}} müşahidə keçidində {{frames}} ekspozisiya, {{from}} → {{to}}.",
+      "epoch": "Keçid"
+    },
+    "share": {
+      "title": "Paylaş və yerləşdir",
+      "copyLink": "Linki kopyala",
+      "copyEmbed": "Embed kodunu kopyala",
+      "copied": "Kopyalandı!",
+      "copyManual": "Bunu kopyalayın:"
+    },
+    "viewer": {
+      "aria": "SPHEREx şəkil ardıcıllığı. Boşluq oynadır və ya dayandırır, ox düymələri kadrlar arasında keçir.",
+      "hoverHint": "Koordinat və piksel dəyəri üçün siçanı şəklin üzərində saxlayın. Boşluq = oynat/dayandır, ← → = addım.",
+      "prev": "Əvvəlki kadr",
+      "next": "Növbəti kadr",
+      "playPause": "Oynat / dayandır",
+      "frame": "Kadr",
+      "speed": "Sürət",
+      "modes": {
+        "blink": "Blink",
+        "difference": "Fərq",
+        "motion": "Hərəkət rəngi"
+      },
+      "modeHelp": {
+        "blink": "Kadrları zaman ardıcıllığı ilə oynadır.",
+        "difference": "Cari kadr çıxılsın istinad kadrı: qırmızı = indi daha parlaq, mavi = indi daha zəif. Sabit ulduzlar silinir.",
+        "motion": "İstinad kadrı qırmızı, cari kadr mavi-yaşıl. Sabit ulduzlar ağ görünür; hərəkət edən obyektlər qırmızı/mavi cüt kimi görünür."
+      },
+      "reference": "İstinad",
+      "stretch": "Kontrast",
+      "colormap": "Rənglər",
+      "targetMarker": "Hədəfin proqnoz mövqeyini göstər",
+      "maskOverlay": "Bayraqlı / doymuş pikselləri vurğula",
+      "smooth": "Hamar piksellər",
+      "black": "Qara səviyyə",
+      "white": "Ağ səviyyə"
+    },
+    "flagHelp": {
+      "OVERFLOW": "Detektor doyub (parlaq mənbə)",
+      "SUR_ERROR": "Ramp uyğunlaşdırma problemi",
+      "NONLINEAR": "Piksel qeyri-xətti rejimdədir",
+      "PERSIST": "Əvvəlki parlaq mənbədən qalıq iz ola bilər",
+      "OUTLIER": "Kənar dəyər / kosmik şüa ehtimalı (maskalanıb)",
+      "TRANSIENT": "Keçici zərbə (maskalanıb)",
+      "HOT": "İsti piksel (maskalanıb)",
+      "NONFUNC": "İşləməyən piksel (maskalanıb)",
+      "DICHROIC": "Dixroik artefakt bölgəsi"
+    }
   }
 }

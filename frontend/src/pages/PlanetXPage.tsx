@@ -58,7 +58,7 @@ export default function PlanetXPage() {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 md:p-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-white flex items-center gap-2">

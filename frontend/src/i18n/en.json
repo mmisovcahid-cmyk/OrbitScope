@@ -5,6 +5,7 @@
     "description": "NASA SPHEREx astronomical survey monitoring and moving object detection platform"
   },
   "nav": {
+    "blink": "SPHEREx Blink",
     "dashboard": "Sky Explorer",
     "detection": "Detection",
     "analysis": "Analysis",
@@ -361,7 +362,8 @@
     "language": {
       "en": "English",
       "az": "Azərbaycan"
-    }
+    },
+    "simulatedNotice": "This page runs on the simulated demo pipeline (labelled [SIMULATED]). For real SPHEREx images use"
   },
   "status": {
     "known_object": "Known Object",
@@ -382,7 +384,7 @@
     "unauthorized": "You are not authorized to perform this action.",
     "timeout": "Request timed out. Please try again.",
     "rateLimited": "Too many requests. Please wait a moment.",
-    "invalidCoordinates": "Invalid coordinates. RA must be 0-360, Dec must be -90 to +90.",
+    "invalidCoordinates": "Invalid coordinates: RA must be 0–360°, Dec −90…+90°.",
     "pipelineError": "Detection pipeline encountered an error.",
     "noObservationsSelected": "Please select observations before running the pipeline."
   },
@@ -400,5 +402,100 @@
     "aphelion": "Farthest distance from the Sun",
     "neo": "Near-Earth Object: perihelion distance less than 1.3 AU",
     "pha": "Potentially Hazardous Asteroid: absolute magnitude ≤ 22 and MOID ≤ 0.05 AU"
+  },
+  "blink": {
+    "title": "SPHEREx Time-Lapse Viewer",
+    "subtitle": "Enter a sky position or object name. OrbitScope fetches every real SPHEREx image of that spot from NASA/IPAC IRSA, aligns them and plays them as a short movie so moving and changing objects stand out.",
+    "realData": "REAL SPHEREx DATA",
+    "loading": "Downloading SPHEREx images from IRSA… {{seconds}} s",
+    "loadingShort": "Loading SPHEREx images…",
+    "loadingHint": "The first request for a new field can take 1–2 minutes. Repeated views are instant (cached).",
+    "search": {
+      "label": "Object name or coordinates",
+      "placeholder": "Barnard's Star · 08h55m10.831s -7d14m42.53s · 269.452 4.693",
+      "button": "Show",
+      "fov": "Field of view",
+      "detector": "Detector (wavelength)",
+      "allDetectors": "All detectors",
+      "mode": "Frames",
+      "modeEpoch": "One stacked image per survey pass",
+      "modeFrames": "Individual exposures",
+      "perEpoch": "Exposures stacked per pass",
+      "maxFrames": "Max. exposures",
+      "tryTargets": "Test targets:"
+    },
+    "errors": {
+      "empty": "Enter an object name or coordinates.",
+      "timeout": "The request took too long. IRSA may be busy; try again or choose a smaller field."
+    },
+    "intro": {
+      "title": "How it works",
+      "step1": "Type an object name (e.g. Barnard's Star) or RA/Dec in decimal or sexagesimal form, or pick a test target.",
+      "step2": "OrbitScope finds every SPHEREx exposure covering that point, removes zodiacal light, masks flagged pixels and aligns all images north-up.",
+      "step3": "Play the sequence. Moving objects jump between frames; variable stars change brightness. Use Difference or Motion colour to make changes pop out.",
+      "note": "Data: NASA SPHEREx Level-2 images via NASA/IPAC IRSA. New public releases are picked up automatically. Links are shareable and embeddable."
+    },
+    "panels": {
+      "target": "Target",
+      "customPosition": "Custom position",
+      "properMotion": "Proper motion",
+      "resolver": "Position source",
+      "frame": "Frame {{n}} / {{total}}",
+      "date": "Date",
+      "exposures": "Stacked exposures",
+      "detectors": "Detectors",
+      "wavelength": "Wavelength",
+      "masked": "Flagged pixels",
+      "flags": "Quality flags in this cutout",
+      "sourceFiles": "Source FITS files ({{n}})",
+      "coverage": "SPHEREx coverage",
+      "coverageSummary": "{{frames}} exposures in {{epochs}} survey passes, {{from}} → {{to}}.",
+      "epoch": "Pass"
+    },
+    "share": {
+      "title": "Share & embed",
+      "copyLink": "Copy link",
+      "copyEmbed": "Copy embed code",
+      "copied": "Copied!",
+      "copyManual": "Copy this:"
+    },
+    "viewer": {
+      "aria": "SPHEREx image sequence. Space plays or pauses, arrow keys step through frames.",
+      "hoverHint": "Hover over the image for coordinates and pixel values. Space = play/pause, ← → = step.",
+      "prev": "Previous frame",
+      "next": "Next frame",
+      "playPause": "Play / pause",
+      "frame": "Frame",
+      "speed": "Speed",
+      "modes": {
+        "blink": "Blink",
+        "difference": "Difference",
+        "motion": "Motion colour"
+      },
+      "modeHelp": {
+        "blink": "Play the frames in time order.",
+        "difference": "Current frame minus the reference frame: red = brighter now, blue = fainter now. Static stars cancel out.",
+        "motion": "Reference frame in red, current frame in cyan. Static stars look white; moving objects show a red/cyan pair."
+      },
+      "reference": "Reference",
+      "stretch": "Stretch",
+      "colormap": "Colours",
+      "targetMarker": "Show predicted target position",
+      "maskOverlay": "Highlight flagged / saturated pixels",
+      "smooth": "Smooth pixels",
+      "black": "Black level",
+      "white": "White level"
+    },
+    "flagHelp": {
+      "OVERFLOW": "Detector saturated (bright source)",
+      "SUR_ERROR": "Sample-up-the-ramp fit problem",
+      "NONLINEAR": "Pixel in the non-linear regime",
+      "PERSIST": "Possible persistence from an earlier bright source",
+      "OUTLIER": "Outlier / cosmic-ray candidate (masked)",
+      "TRANSIENT": "Transient hit (masked)",
+      "HOT": "Hot pixel (masked)",
+      "NONFUNC": "Non-functional pixel (masked)",
+      "DICHROIC": "Dichroic artefact region"
+    }
   }
 }

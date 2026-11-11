@@ -12,3 +12,6 @@ frontend/dist/
 
 # Worktrees / local tooling
 .claude/worktrees/
+
+# SPHEREx cutout / coverage cache
+backend/cache/

@@ -502,3 +502,14 @@ class PipelineManager:
             pipeline_stages=stages,
             is_simulated=is_simulated,
         )
+
+
+def _build_default_manager() -> PipelineManager:
+    """Application singleton wired to the JPL client for catalog cross-matching."""
+    from app.services.jpl_client import jpl_client
+
+    return PipelineManager(spherex_data_manager=None, jpl_client=jpl_client)
+
+
+# Default singleton instance (imported by app.main)
+pipeline_manager = _build_default_manager()

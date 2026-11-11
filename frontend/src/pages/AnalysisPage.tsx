@@ -47,7 +47,7 @@ export default function AnalysisPage() {
   const c = candidate;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 p-4 md:p-6">
       {/* Back button + Header */}
       <div className="flex items-start gap-3">
         <button onClick={() => navigate(-1)} className="mt-1 p-1.5 rounded-lg hover:bg-white/5 text-gray-500">
