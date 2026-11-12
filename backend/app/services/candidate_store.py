@@ -112,6 +112,25 @@ class CandidateStore:
                 return None
         return self.get(cand_id)
 
+    def get_run(self, run_id: str) -> Optional[dict[str, Any]]:
+        with self._lock:
+            r = self._conn.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()
+        if not r:
+            return None
+        return {"id": r["id"], "created_at": r["created_at"], "params": json.loads(r["params"]),
+                "summary": json.loads(r["summary"])}
+
+    def recent_runs(self, limit: int = 10) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM runs ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
+        return [{"id": r["id"], "created_at": r["created_at"], "params": json.loads(r["params"]),
+                 "summary": json.loads(r["summary"])} for r in rows]
+
+    def class_counts(self) -> dict[str, int]:
+        with self._lock:
+            rows = self._conn.execute("SELECT class, COUNT(*) AS n FROM candidates GROUP BY class").fetchall()
+        return {r["class"]: r["n"] for r in rows}
+
     def counts(self) -> dict[str, int]:
         with self._lock:
             rows = self._conn.execute("SELECT status, COUNT(*) AS n FROM candidates GROUP BY status").fetchall()

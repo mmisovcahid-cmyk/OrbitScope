@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-OrbitScope is a SPHEREx time-domain sky monitoring / moving-object detection platform: a Python FastAPI backend (`backend/`) running an astronomical image-processing pipeline, plus a React + TypeScript + Vite + Tailwind frontend (`frontend/`). Not a git repository. The UI is bilingual (English / Azerbaijani). See `docs/` (ARCHITECTURE, METHODOLOGY, LIMITATIONS, REFERENCES) for scientific background.
+OrbitScope is a SPHEREx time-domain sky monitoring / moving-object detection platform: a Python FastAPI backend (`backend/`) running an astronomical image-processing pipeline, plus a React + TypeScript + Vite + Tailwind frontend (`frontend/`). The UI is bilingual (English / Azerbaijani). See `docs/DATA_SOURCES.md` for every external API (all keyless) and `docs/AUDIT_AND_ROADMAP.md` for status and validation results.
+
+Git workflow (from the user): develop in the worktree `.claude/worktrees/full-system` (branch `dev/full-system`), merge into `main` only after the user approves, and never push without explicit approval.
 
 ## Commands
 
@@ -34,7 +36,14 @@ The Vite dev server runs on 5173. The frontend calls the backend directly via `V
 
 ## Real SPHEREx data path (the main feature)
 
-This is the only part of the app that uses real mission data; everything else still runs on the simulated pipeline.
+Every page in the UI uses real data:
+
+- Blink, Detection, Comparison and Analysis use SPHEREx data via IRSA.
+- Sky Explorer uses the saved runs and candidates plus live status.
+- Catalog uses live JPL data (`app/services/jpl_catalog.py`: SBDB, Horizons, SB Ident).
+- Planet X runs a live Rayleigh clustering test on JPL orbits (`app/services/etno.py`); its evidence cards are labelled literature.
+
+Real-data paths must never fall back to invented values: return a 502 with an explanation instead. Only the deprecated legacy routers `/api/v1/{sky,observations,detection}` (and the old `jpl_client` they use) still produce `[SIMULATED]` data, and they are not used by the UI. The test suite blocks network access to SB Ident in `tests/conftest.py`, so it runs offline in about 40 s.
 
 - `app/services/spherex_archive.py`:
   1. Queries IRSA TAP `spherex.obscore` with `CONTAINS(POINT(ra,dec), s_region)`. Collections are matched by the `spherex` prefix, so new releases are picked up without code changes.
@@ -94,9 +103,18 @@ This is the only part of the app that uses real mission data; everything else st
 
 ## Frontend architecture
 
-- `src/App.tsx` — react-router routes inside a shared `Layout`: `/` Dashboard, `/detection`, `/analysis/:id`, `/comparison`, `/planetx`, `/catalog`, `/about`. Pages live in `src/pages/`.
+- `src/App.tsx` sets up react-router routes (lazy-loaded), all inside a shared `Layout` except `/embed`. Pages live in `src/pages/`:
+  - `/` SPHEREx Blink
+  - `/dashboard` Sky Explorer (`components/skymap/AllSkyMap.tsx`)
+  - `/detection`
+  - `/analysis/:id` (saved candidate)
+  - `/comparison` (two real passes)
+  - `/planetx`
+  - `/catalog` (live JPL; `?q=` deep link)
+  - `/about`
+  - `/embed` (outside the Layout)
 - `src/services/api.ts` (axios instance) + `src/services/index.ts` (`skyService`, `detectionService`, `catalogService`, etc., one per backend router).
 - `src/hooks/useApi.ts` — generic fetch hook; unwraps `res.data.data ?? res.data`, so backend responses are typically wrapped in a `data` envelope.
 - `src/types/index.ts` — TS mirrors of backend schemas; keep in sync with `schemas.py` when changing API shapes.
 - `src/i18n/en.json` and `az.json` — every UI string needs a key in both files.
-- Sky map is custom HTML5 Canvas (`components/skymap/SkyMapCanvas.tsx`); charts use Recharts; `@` alias maps to `src/`.
+- Charts use Recharts; `@` alias maps to `src/`.

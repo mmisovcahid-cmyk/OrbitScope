@@ -226,7 +226,6 @@ class JPLClient:
         params = {
             "sstr": clean_query,
             "phys-par": "1",
-            "orbit": "1",
             "ca-data": "1",
         }
 
@@ -315,7 +314,6 @@ class JPLClient:
         params = {
             "sstr": clean_des,
             "phys-par": "1",
-            "orbit": "1",
             "ca-data": "1",
         }
 
@@ -531,39 +529,29 @@ class JPLClient:
         if cached is not None:
             return cached
 
+        # One JPL SB Ident query covers every known asteroid/comet in the field (the former loop
+        # over eight Horizons ephemerides took minutes and only knew eight bodies).
+        try:
+            from app.services.jpl_catalog import known_in_field
+
+            field = await known_in_field(ra, dec, max(effective_radius, 0.01))
+            live = [
+                CatalogObject(
+                    designation=o["name"].split(" (")[0], name=o["name"],
+                    object_type="comet" if o["kind"] == "comet" else "asteroid",
+                    data_source="JPL SB Ident", is_simulated=False, ra=o["ra"], dec=o["dec"],
+                )
+                for o in field["objects"]
+            ]
+            catalog_cache.set(cache_key, live)
+            return live
+        except Exception as exc:
+            logger.warning(f"SB Ident field search failed: {exc}")
+
         nearby_objects: List[CatalogObject] = []
 
-        # List of benchmark solar system bodies to check positions for
-        benchmark_targets = [
-            ("1", "1 Ceres", 2.77, 0.08, 10.6),
-            ("4", "4 Vesta", 2.36, 0.09, 7.1),
-            ("134340", "134340 Pluto", 39.48, 0.25, 17.1),
-            ("136199", "136199 Eris", 67.8, 0.44, 44.0),
-            ("90377", "90377 Sedna", 506.0, 0.855, 11.9),
-            ("50000", "50000 Quaoar", 43.4, 0.04, 8.0),
-            ("136108", "136108 Haumea", 43.1, 0.19, 28.2),
-            ("136472", "136472 Makemake", 45.4, 0.16, 29.0),
-        ]
-
-        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-
-        for target_id, target_name, a, e, inc in benchmark_targets:
-            try:
-                ephem = await self.get_ephemeris(target_id, start_time=now_str, stop_time=now_str)
-                if ephem:
-                    first = ephem[0]
-                    dist = _angular_separation_deg(ra, dec, first.ra, first.dec)
-                    if dist <= effective_radius:
-                        details = await self.get_object_details(target_id)
-                        if details:
-                            details.ra = first.ra
-                            details.dec = first.dec
-                            nearby_objects.append(details)
-            except Exception:
-                continue
-
-        # In demo mode, if no real bodies are within cone, generate realistic test objects
-        if not nearby_objects and settings.DEMO_MODE:
+        # JPL unreachable: demo mode returns clearly labelled [SIMULATED] objects, otherwise nothing.
+        if settings.DEMO_MODE:
             simulated = self._generate_simulated_nearby(ra, dec, effective_radius)
             catalog_cache.set(cache_key, simulated)
             return simulated

@@ -278,37 +278,37 @@
     "subtitle": "Elmi metodologiya, məlumat mənbələri və platforma sənədləri",
     "overview": {
       "title": "Platformanın İcmalı",
-      "description": "OrbitScope NASA SPHEREx tam-səma müşahidə məlumatlarında hərəkət edən obyektlərin aşkarlanması və xarakterizasiyasını dəstəkləmək üçün hazırlanmış elmi monitorinq platformasıdır. Platforma çoxdövrlü müşahidə müqayisəsi, avtomatlaşdırılmış aşkarlama boru xətləri və məlum Günəş sistemi obyekt kataloqları ilə çarpaz uyğunlaşdırma alətləri təqdim edir.",
-      "mission": "Missiyamız yeni Günəş sistemi obyektlərinin kəşfini asanlaşdırmaq və elmi ictimaiyyətə SPHEREx müşahidə məlumatlarının təhlilində dəstək verməkdir."
+      "description": "OrbitScope real NASA SPHEREx şəkillərində səmanın necə dəyişdiyini araşdırmaq üçün ictimai veb alətdir. Obyekt adı və ya koordinat daxil edin - həmin nöqtənin bütün SPHEREx ekspozisiyalarını üst-üstə düzülmüş qısa video kimi oynadır; bu şəkillərdə hərəkətli obyektləri axtarır və hər aşkarlamanı NASA/JPL, Gaia və CatWISE kataloqları ilə yoxlayır.",
+      "mission": "Məqsəd: SPHEREx-in zaman məlumatını hər kəs üçün asan baxılan etmək ki, hərəkət edən və dəyişən obyektləri - asteroidləri, kometləri, yaxın ulduzları və qəhvəyi cırtdanları - gözlə tapmaq və yoxlamaq mümkün olsun."
     },
     "methodology": {
       "title": "Aşkarlama Metodologiyası",
-      "step1Title": "Şəkil Uyğunlaşdırma",
-      "step1Desc": "Çoxdövrlü müşahidələr astrometrik həllər və istinad ulduz uyğunlaşdırması ilə düzəldilir.",
-      "step2Title": "Şəkil Çıxarma",
-      "step2Desc": "Uyğunlaşdırılmış şəkillər hərəkət edən və ya dəyişən obyektləri vurğulayaraq dövrlar arasındakı dəyişiklikləri aşkar etmək üçün çıxarılır.",
-      "step3Title": "Mənbə Çıxarılması",
-      "step3Desc": "Əhəmiyyətli qalıqlar səs-küy qiymətləndirməsi ilə həddi əsaslı aşkarlama alqoritmləri istifadə edilərək müəyyən edilir.",
-      "step4Title": "Çarpaz Uyğunlaşdırma",
-      "step4Desc": "Aşkarlanan mənbələr JPL-in Kiçik Cisim Verilənlər Bazası və digər kataloqlarla çarpaz uyğunlaşdırılır.",
-      "step5Title": "Təsnifat",
-      "step5Desc": "Namizədlər hərəkət xüsusiyyətləri, SQN və kataloq çarpaz uyğunlaşdırma nəticələrinə əsasən təsnif edilir."
+      "step1Title": "Real SPHEREx məlumatı",
+      "step1Desc": "Level-2 şəkillər IRSA-nın TAP servisi ilə tapılır (yeni ictimai buraxılışlar avtomatik daxil olur), hədəf ətrafında kəsilir, zodiakal işıq və bayraqlı piksellər çıxarılır.",
+      "step2Title": "Üst-üstə düzmə və toplama",
+      "step2Desc": "Hər ekspozisiya bir şimal-yuxarı şəbəkəyə köçürülür (hər şəklin SIP təhrifli WCS-i ilə); bir keçidin ekspozisiyaları tərs dispersiya ilə toplanır.",
+      "step3Title": "Hərəkətli obyekt axtarışı",
+      "step3Desc": "Asteroidlər: hər detektor üçün sabit səma şablonu çıxılır və qalıqlar SPHEREx-in ~7 dəqiqəlik ziyarətləri daxilində birləşdirilir. Ulduzlar/qəhvəyi cırtdanlar: mənbələrin mərkəzi hər keçiddə ölçülür və əhəmiyyətli yerdəyişmələr bildirilir.",
+      "step4Title": "Kataloqlarla müqayisə",
+      "step4Desc": "Aşkarlamalar JPL SB Ident-dən məlum asteroid və kometlərlə, Gaia DR3 / CatWISE2020 ulduzları ilə (xüsusi hərəkətləri daxil olmaqla) müqayisə olunur.",
+      "step5Title": "Qiymətləndirmə",
+      "step5Desc": "Namizədlər təsnif edilir (məlum obyekt, yeni hərəkətli, stasionar keçici, dəyişkən) və saxlanılır; istifadəçilər onları real / artefakt kimi işarələyir və astrometriyanı CSV ilə ixrac edir."
     },
     "dataSources": {
       "title": "Məlumat Mənbələri",
-      "spherex": "NASA SPHEREx tam-səma müşahidə infraqırmızı spektral məlumatları",
-      "jpl": "Günəş sistemi obyekt kataloqları üçün JPL Kiçik Cisim Verilənlər Bazası",
-      "mpc": "Orbital element məlumatları üçün Kiçik Planetlər Mərkəzi",
-      "gaia": "Astrometrik istinad ulduzları üçün ESA Gaia kataloqu",
-      "note": "Qeyd: Bu platforma hazırda nümayiş məqsədləri üçün simulyasiya məlumatları ilə işləyir. Əsl SPHEREx müşahidə məlumatlarının inteqrasiyası gələcək buraxılışlar üçün planlaşdırılır."
+      "spherex": "NASA SPHEREx Level-2 spektral şəkilləri (NASA/IPAC IRSA: TAP, datalink, IBE kəsikləri)",
+      "jpl": "NASA/JPL Kiçik Cisimlər Bazası, Horizons və SB Ident API-ləri",
+      "mpc": "CDS Sesame və NED ad həlledicilər (obyekt adından koordinata)",
+      "gaia": "ESA Gaia DR3 və CatWISE2020 (IRSA) istinad kataloqları",
+      "note": "SPHEREx Blink, Səma Tədqiqatçısı, Aşkarlama, Müqayisə, Kataloq və Planet X klaster testində göstərilən bütün məlumat realdır və bu ictimai servislərdən canlı alınır; heç biri API açarı tələb etmir. Ədəbiyyat dəyərləri (Planet X sübutları və proqnozları) belə işarələnib."
     },
     "limitations": {
       "title": "Məhdudiyyətlər və İmtinalar",
-      "item1": "Aşkarlama həssaslığı müşahidə tezliyi və şəkil keyfiyyəti ilə məhdudlaşır.",
-      "item2": "Çarpaz uyğunlaşdırma tamlığı istinad kataloqlarının əhatə dairəsindən asılıdır.",
-      "item3": "Simulyasiya məlumatları əsl SPHEREx alət xüsusiyyətlərini tam əks etdirməyə bilər.",
-      "item4": "Təsnifat alqoritmləri aktiv inkişaf mərhələsindədir və yanlış müsbət nəticələr verə bilər.",
-      "item5": "Planet X sübutları nəzəridir və nəşr olunmuş tədqiqatlara əsaslanır; birbaşa aşkarlama edilməyib."
+      "item1": "Tək SPHEREx ekspozisiyası hərəkətli obyektlər üçün təxminən V≈17-18-ə çatır; daha zəif asteroidlər adətən tapılmır.",
+      "item2": "Çox parlaq ulduzlar SPHEREx detektorlarını doydurur və fotometriya/astrometriyadan çıxarılır.",
+      "item3": "Asteroid axtarışı aşkarlamaları bir ~7 dəqiqəlik ziyarət daxilində birləşdirir, buna görə çox yavaş obyektlər (məs. uzaq Doqquzuncu Planet) sabit görünür.",
+      "item4": "Namizədlər kəşf deyil: müstəqil təsdiq tələb edir və müvafiq qurumlara bildirilməlidir.",
+      "item5": "Planet X sübutları dərc olunmuş hipotezdir; buradakı klaster testi müşahidə seçimi meylini düzəltmir."
     },
     "credits": {
       "title": "Kreditlər və İstinadlar",
@@ -316,7 +316,7 @@
       "jplSSD": "JPL Günəş Sistemi Dinamikası Qrupu",
       "caltech": "Kaliforniya Texnologiya İnstitutu",
       "battygin": "Batygin & Brown (2016) - Uzaq Nəhəng Planetin Sübutu",
-      "license": "Bu platforma təhsil və tədqiqat məqsədləri üçün hazırlanmışdır."
+      "license": "NASA Space Apps Challenge üçün təhsil və tədqiqat məqsədilə hazırlanıb. SPHEREx məlumatı NASA/JPL-Caltech və NASA/IPAC IRSA-ya məxsusdur."
     }
   },
   "common": {
@@ -632,5 +632,145 @@
     "queued": "Başqa axtarışlar işləyir; bu, boş yer açılan kimi başlayacaq.",
     "cancel": "Ləğv et",
     "cancelled": "Ləğv edildi."
+  },
+  "catalogLive": {
+    "subtitle": "NASA/JPL-dən canlı məlumat: Kiçik Cisimlər Bazası (orbitlər, fiziki məlumat, yaxınlaşmalar), Horizons (cari mövqe və efemerid) və SB Ident (istənilən səma sahəsindəki məlum obyektlər). Bu səhifədə heç nə simulyasiya deyil.",
+    "placeholder": "Ad, nömrə və ya işarə: Ceres, 433, 2004 MN4, 1P…",
+    "popular": "Məşhur cisimlər:",
+    "matches": "{{n}} obyekt uyğun gəlir - birini seçin:",
+    "kind": {
+      "asteroid": "Asteroid",
+      "comet": "Kometa"
+    },
+    "designation": "İşarə",
+    "moid": "Yer ilə minimal orbit məsafəsi (MOID)",
+    "tisserand": "Tisserand parametri (Yupiter)",
+    "rotation": "Fırlanma dövrü",
+    "spectral": "Spektral sinif",
+    "orbitQuality": "Orbitin keyfiyyəti",
+    "conditionCode": "Qeyri-müəyyənlik (şərt kodu, 0 = ən yaxşı)",
+    "observations": "İstifadə olunan müşahidələr",
+    "arc": "Müşahidə aralığı",
+    "ephemTitle": "İndi haradadır? (JPL Horizons)",
+    "ephemNote": "Növbəti 7 gün üçün geosentrik astrometrik mövqe.",
+    "now": "İndi",
+    "mag": "ulduz ölçüsü",
+    "fromEarth": "Yerdən",
+    "elongation": "Elonqasiya",
+    "approaches": "Yaxınlaşmalar (JPL siyahısında {{n}})",
+    "date": "Tarix (TDB)",
+    "body": "Cisim",
+    "distance": "Məsafə",
+    "fieldTitle": "Hansı məlum asteroid/kometlər sahədə idi?",
+    "fieldNote": "JPL-dən soruşun: verilmiş UTC vaxtında səma sahəsində hansı məlum kiçik cisimlər var idi - məs. SPHEREx ekspozisiyasının vaxtında. Nümunə OrbitScope-un 626 Notburga-nı tapdığı sahədir.",
+    "radius": "Radius (°)",
+    "timeUtc": "Vaxt (UTC)",
+    "fieldSlow": "JPL SB Ident bütün məlum orbitləri hesablayır - bu ~20 saniyə çəkir.",
+    "fieldNone": "Bu vaxtda bu sahədə V=21-dən parlaq məlum asteroid və ya kometa yoxdur.",
+    "object": "Obyekt",
+    "sep": "Məsafə",
+    "details": "Ətraflı",
+    "toDetection": "Bu sahəni real SPHEREx ekspozisiyalarında axtarın:"
+  },
+  "planetxLive": {
+    "subtitle": "Doqquzuncu Planet hipotezi NASA/JPL-in canlı orbitləri üzərində yoxlanılır. Bu səhifədəki klaster statistikası OrbitScope tərəfindən hesablanır; sübut kartları və proqnoz parametrləri ədəbiyyat dəyərləridir.",
+    "testTitle": "Orbitlərin klasterləşməsi realdırmı? (canlı JPL orbitləri)",
+    "testIntro": "Uzaq ayrılmış TNO-lar (a ≥ 150 AV, q ≥ 30 AV) indi JPL Kiçik Cisimlər Bazasından alınır. Rayleigh testi onların orbit bucaqlarının təsadüfdən artıq dərəcədə bir istiqamətə yönəlib-yönəlmədiyini yoxlayır.",
+    "loading": "JPL-dən ~20 orbit alınır…",
+    "angle": {
+      "varpi": "Perihelinin uzunluğu",
+      "node": "Yüksələn düyünün uzunluğu",
+      "argperi": "Perihelinin arqumenti"
+    },
+    "mean": "orta",
+    "verdict": {
+      "strong": "Əhəmiyyətli klasterləşmə (p < 0.01)",
+      "weak": "Zəif sübut (p < 0.05)",
+      "none": "Təsadüfi paylanmaya uyğundur"
+    },
+    "periPlot": "Perihelin istiqamətləri (q·cos ϖ, q·sin ϖ) - qırıq xətt: orta istiqamət",
+    "periNote": "Orbitlər təsadüfi yönəlsəydi, nöqtələr Günəşin ətrafında bərabər paylanardı. Onlar ϖ ≈ {{mean}}° ətrafında toplanır.",
+    "aqPlot": "Böyük yarımox və perihelin məsafəsi",
+    "caveatTitle": "Diqqət:",
+    "caveat": "Müşahidə proqramları uzaq TNO-ları yalnız baxdıqları yerdə və vaxtda tapır, buna görə seçim effekti görünən klasterləşmə yarada bilər. Müşahidə meyllərini modelləşdirən təhlillər (Shankman və b. 2017; Napier və b. 2021) klasterləşməni Doqquzuncu Planetsiz də izah olunan hesab edir. Bu test seçim meylini düzəltmir.",
+    "table": "Orbit cədvəli ({{n}} obyekt)",
+    "missing": "{{n}} obyekt hazırda alına bilmədi",
+    "spherexTitle": "SPHEREx və ya OrbitScope Doqquzuncu Planeti tapa bilərmi?",
+    "spherexText": "Proqnozlaşdırılan Doqquzuncu Planet çox zəifdir (ehtimal V ≈ 20–24) və 300–500 AV məsafədə saatda yalnız ~0.3″ hərəkət edir (əsasən Yerin öz hərəkəti səbəbindən). OrbitScope-un asteroid axtarışı aşkarlamaları ~7 dəqiqəlik SPHEREx ziyarəti daxilində birləşdirir, buna görə belə yavaş obyekt sabit görünür və tapılmaz; bunun üçün xüsusi çoxgünlük axtarış lazımdır. Bu, hazırkı alətin dürüst məhdudiyyətidir.",
+    "literature": "Ədəbiyyat xülasəsi - OrbitScope tərəfindən ölçülməyib.",
+    "strength": {
+      "strong": "güclü",
+      "moderate": "orta",
+      "suggestive": "ehtimal"
+    },
+    "predSource": "Brown & Batygin (2021), AJ 162:219 - ədəbiyyat dəyərləri, burada ölçülməyib.",
+    "pred": {
+      "mass": "Kütlə",
+      "a": "Böyük yarımox",
+      "q": "Perihelin məsafəsi",
+      "i": "Meyl",
+      "period": "Orbital dövr"
+    }
+  },
+  "analysisLive": {
+    "measurement": "Ölçmə",
+    "epoch": "İstinad epoxası",
+    "detections": "Aşkarlamalar",
+    "detectors": "detektor",
+    "review": "Sizin qiymətiniz",
+    "notePlaceholder": "Qeyd (məs. 'Blink-də açıq-aydın hərəkət edir, ulduz üzərində deyil')",
+    "noteHint": "Qeyd qiymət statusu ilə birlikdə saxlanılır.",
+    "astrometry": "Astrometriya (hər ekspozisiya üçün bir sətir)",
+    "onStar": "Ulduz üzərində",
+    "open": "Ətraflı"
+  },
+  "dash": {
+    "title": "Səma Tədqiqatçısı",
+    "subtitle": "Bu səhifədəki hər şey canlıdır: beş sınaq hədəfi, axtardığınız sahələr və real SPHEREx məlumatında tapdığınız namizədlər. Xəritədəki markerə klikləyin.",
+    "irsa": "NASA/IPAC IRSA",
+    "online": "Onlayn",
+    "offline": "Əlçatmaz",
+    "cache": "Keşdəki SPHEREx ekspozisiyaları",
+    "cacheDetail": "{{limit}} MB-dan {{mb}} MB",
+    "searches": "Saxlanmış axtarışlar",
+    "running": "hazırda {{n}} işləyir",
+    "recentOnly": "sonuncular xəritədə göstərilir",
+    "candidates": "Saxlanmış namizədlər",
+    "reviewed": "{{n}} qiymətləndirilib",
+    "legend": {
+      "targets": "sınaq hədəfləri",
+      "candidates": "namizədləriniz",
+      "searches": "axtarılan sahələr",
+      "ecliptic": "ekliptika (asteroidlər)",
+      "galaxy": "Süd Yolu müstəvisi"
+    },
+    "pick": "Xəritədəki markerə klikləyin.",
+    "challengeTarget": "Sınaq hədəfi",
+    "search": "Axtarış",
+    "runSummary": "{{frames}} kadrdan {{n}} namizəd",
+    "reopen": "Bu axtarışı aç",
+    "byClass": "Siniflərə görə namizədlər",
+    "noCandidates": "Hələ namizəd yoxdur - axtarış başladın:",
+    "recent": "Son axtarışlar",
+    "noRuns": "Hələ axtarış yoxdur.",
+    "mission": "SPHEREx missiyası",
+    "fact1": "11 mart 2025-də buraxılıb; bütün səmanı təxminən hər 6 aydan bir xəritələyir.",
+    "fact2": "102 spektral kanal, 0.75–5.0 µm (xətti dəyişən filtrli 6 detektor).",
+    "fact3": "6.2″ piksel, 3.5° × 11.3° baxış sahəsi.",
+    "fact4": "İctimai Quick Release şəkilləri NASA/IPAC IRSA-dadır - OrbitScope onlardan birbaşa istifadə edir."
+  },
+  "cmp": {
+    "subtitle": "Eyni sahənin iki real SPHEREx keçidini yan-yana qoyun (eyni kontrastla), bir-birindən çıxın, blink edin və ya üst-üstə qoyun.",
+    "intro": "Obyekt və ya koordinat seçin. OrbitScope həmin sahənin hər SPHEREx keçidini toplayır və istənilən ikisini müqayisə etməyə imkan verir.",
+    "epochA": "Keçid A",
+    "epochB": "Keçid B",
+    "mode": {
+      "side": "Yan-yana",
+      "difference": "Fərq",
+      "blink": "Blink",
+      "overlay": "Üst-üstə"
+    },
+    "baseline": "A ilə B arasında vaxt: {{days}} gün",
+    "diffHelp": "Qırmızı = B-də daha parlaq, mavi = A-da daha parlaq. Hərəkət edən ulduz mavi/qırmızı cüt, dəyişkən ulduz isə tək rəng buraxır."
   }
 }

@@ -397,6 +397,9 @@ export default function DetectionPage() {
                       <div className="text-[11px]" style={{ color: CLASS_COLORS[sel.class] }}>{classLabel(sel.class)} · {t('detect.score')} {sel.score}</div>
                     </div>
                     <div className="flex gap-2">
+                      <Link to={`/analysis/${sel.id}`} className="px-2 py-1 rounded-lg bg-sky-500/15 border border-sky-500/30 text-[11px] text-sky-200 hover:bg-sky-500/25">
+                        {t('analysisLive.open')}
+                      </Link>
                       <Link to={blinkLink(sel)} className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[11px] text-gray-200 hover:bg-white/10 flex items-center gap-1">
                         <Eye className="w-3.5 h-3.5" /> Blink
                       </Link>
@@ -493,7 +496,7 @@ export default function DetectionPage() {
               <tbody>
                 {saved.filter((c) => !['low_confidence', 'variable_or_residual', 'stationary_transient'].includes(c.class) || savedFilter).map((c) => (
                   <tr key={c.id} className="border-t border-white/5">
-                    <td className="py-1 font-mono text-gray-400">{c.id}</td>
+                    <td className="py-1 font-mono"><Link to={`/analysis/${c.id}`} className="text-sky-300 hover:underline">{c.id}</Link></td>
                     <td><span style={{ color: CLASS_COLORS[c.class] }}>{classLabel(c.class)}</span></td>
                     <td className="text-gray-300 truncate max-w-[180px]">{c.match?.name ?? '—'}</td>
                     <td className="font-mono text-gray-400">{formatRA(c.ra)} {formatDec(c.dec)}</td>

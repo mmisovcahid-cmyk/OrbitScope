@@ -33,16 +33,20 @@ export const catalogService = {
     api.get('/api/v1/catalog/search', { params: { query, locale: locale() } }),
   getObject: (designation: string) =>
     api.get(`/api/v1/catalog/object/${encodeURIComponent(designation)}`, { params: { locale: locale() } }),
-  getEphemeris: (target: string) =>
-    api.get('/api/v1/catalog/ephemeris', { params: { target, locale: locale() } }),
+  getEphemeris: (target: string, days = 7) =>
+    api.get('/api/v1/catalog/ephemeris', { params: { target, days, locale: locale() }, timeout: 90000 }),
   getNearby: (ra: number, dec: number, radius = 60) =>
-    api.get('/api/v1/catalog/nearby', { params: { ra, dec, radius_arcsec: radius, locale: locale() } }),
+    api.get('/api/v1/catalog/nearby', { params: { ra, dec, radius_arcsec: radius, locale: locale() }, timeout: 120000 }),
+  /** Known asteroids/comets in a field (radius in degrees) at a UTC time (JPL SB Ident, ~20 s). */
+  getField: (ra: number, dec: number, radiusDeg: number, time?: string) =>
+    api.get('/api/v1/catalog/nearby', { params: { ra, dec, radius: radiusDeg, time, locale: locale() }, timeout: 120000 }),
 };
 
 export const planetxService = {
   getEvidence: () => api.get('/api/v1/planetx/evidence', { params: { locale: locale() } }),
   getTNOs: () => api.get('/api/v1/planetx/tnos', { params: { locale: locale() } }),
   getRegions: () => api.get('/api/v1/planetx/regions', { params: { locale: locale() } }),
+  getClustering: () => api.get('/api/v1/planetx/clustering', { params: { locale: locale() }, timeout: 120000 }),
 };
 
 // Real SPHEREx data. The first request for a field downloads cutouts from IRSA (can take 1-2 min).
@@ -61,6 +65,8 @@ export const spherexService = {
     api.get('/api/v1/spherex/detect', { params: { ...params, locale: locale() }, timeout: 600000, signal }),
   candidates: (status?: string) =>
     api.get('/api/v1/spherex/candidates', { params: { status: status || undefined, limit: 200 } }),
+  candidate: (id: string) => api.get(`/api/v1/spherex/candidates/${encodeURIComponent(id)}`, { params: { locale: locale() } }),
+  overview: () => api.get('/api/v1/spherex/overview', { timeout: 30000 }),
   review: (id: string, status: string, note?: string) =>
     api.patch(`/api/v1/spherex/candidates/${encodeURIComponent(id)}`, { status, note }, { params: { locale: locale() } }),
   exportUrl: (id: string) => `${api.defaults.baseURL}/api/v1/spherex/candidates/${encodeURIComponent(id)}/export`,

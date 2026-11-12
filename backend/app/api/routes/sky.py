@@ -11,7 +11,7 @@ from app.models.schemas import ApiResponse, SkyRegion
 
 logger = get_logger("routes.sky")
 
-router = APIRouter(prefix="/api/v1/sky", tags=["Sky"])
+router = APIRouter(prefix="/api/v1/sky", tags=["Legacy demo (simulated data)"], deprecated=True)
 
 # Supported i18n messages
 MESSAGES: dict[str, dict[str, str]] = {

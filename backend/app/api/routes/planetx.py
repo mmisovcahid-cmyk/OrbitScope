@@ -4,7 +4,9 @@ Provides scientific evidence syntheses, extreme Trans-Neptunian Object (eTNO) ca
 from __future__ import annotations
 
 from typing import Any, List, Optional
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
+
+from app.services.etno import etno_analysis
 
 from app.core.logging_config import get_logger
 from app.models.schemas import (
@@ -339,14 +341,30 @@ async def get_planetx_evidence(
 async def get_planetx_tnos(
     locale: str = Query("en", description="Preferred response locale (en or az)"),
 ) -> ApiResponse:
-    """Return published orbital elements of clustered eTNOs."""
-    return ApiResponse(
-        success=True,
-        data=TNOS_CATALOG,
-        message=_get_msg(locale, "tnos_success"),
-        locale=locale,
-        is_simulated=True,
-    )
+    """Orbits of distant detached TNOs, fetched live from JPL SBDB (literature table as offline fallback)."""
+    try:
+        live = await etno_analysis()
+        data = [{**o, "source": live["source"]} for o in live["objects"]]
+        return ApiResponse(success=True, data=data, message=_get_msg(locale, "tnos_success"), locale=locale,
+                           is_simulated=False)
+    except Exception as exc:
+        logger.warning(f"Live eTNO orbits unavailable, returning literature table: {exc}")
+        return ApiResponse(success=True, data=TNOS_CATALOG, message=_get_msg(locale, "tnos_success"), locale=locale,
+                           is_simulated=False)
+
+
+@router.get(
+    "/clustering",
+    summary="Planet Nine clustering test on live JPL orbits",
+    description="Rayleigh test for clustering of the longitude of perihelion (and node / argument of perihelion) "
+                "of distant detached TNOs, computed from orbits fetched live from JPL SBDB.",
+)
+async def get_clustering(locale: str = Query("en")) -> dict[str, Any]:
+    try:
+        data = await etno_analysis()
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"NASA/JPL unavailable: {exc}")
+    return {"success": True, "data": data, "is_simulated": False}
 
 
 @router.get(

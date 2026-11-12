@@ -23,7 +23,7 @@ from app.models.schemas import (
 
 logger = get_logger("routes.detection")
 
-router = APIRouter(prefix="/api/v1/detection", tags=["Detection"])
+router = APIRouter(prefix="/api/v1/detection", tags=["Legacy demo (simulated data)"], deprecated=True)
 
 MESSAGES: dict[str, dict[str, str]] = {
     "en": {

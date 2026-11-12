@@ -288,6 +288,34 @@ async def list_candidates(
     return {"success": True, "data": {"candidates": store.list(status, klass, limit), "counts": store.counts()}}
 
 
+@router.get("/candidates/{cand_id}", summary="One saved candidate with the parameters of its search run")
+async def get_candidate(cand_id: str, locale: str = "en") -> dict[str, Any]:
+    store = get_store()
+    c = store.get(cand_id)
+    if not c:
+        raise HTTPException(status_code=404, detail=_msg(locale, "candidate_not_found"))
+    return {"success": True, "data": {**c, "run": store.get_run(c["run_id"])}}
+
+
+@router.get("/overview", summary="Real-data overview for the dashboard")
+async def overview() -> dict[str, Any]:
+    from app.services.jobs import job_manager
+
+    store = get_store()
+    irsa = await _irsa_reachable()
+    return {"success": True, "data": {
+        "irsa": irsa,
+        "cache": await asyncio.to_thread(spherex_archive.cache_stats),
+        "review_counts": store.counts(),
+        "class_counts": store.class_counts(),
+        "recent_runs": store.recent_runs(8),
+        "recent_candidates": store.list(limit=200),
+        "targets": [{k: t[k] for k in ("id", "name", "ra", "dec", "kind", "note", "detector")} for t in BUILTIN_TARGETS],
+        "jobs": job_manager.stats(),
+        "is_simulated": False,
+    }}
+
+
 class ReviewBody(BaseModel):
     status: str = Field(..., pattern="^(unreviewed|real|artifact|unsure)$")
     note: Optional[str] = Field(None, max_length=2000)

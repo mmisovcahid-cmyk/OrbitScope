@@ -95,12 +95,20 @@ def test_sky_observations(client: TestClient) -> None:
     assert isinstance(payload["data"], list)
 
 
-def test_sky_objects(client: TestClient) -> None:
-    """Test GET /api/v1/sky/objects cone search via JPL."""
-    res = client.get("/api/v1/sky/objects?ra=83.822&dec=-5.391&radius=1.0")
+def test_sky_objects(client: TestClient, monkeypatch) -> None:
+    """Test GET /api/v1/sky/objects cone search via JPL SB Ident (stubbed, offline)."""
+    import app.services.jpl_catalog as jc
+
+    async def fake_field(ra, dec, radius_deg, when=None, vmag_lim=21.0):
+        return {"objects": [{"name": "4 Vesta (A807 FA)", "kind": "asteroid", "ra": ra, "dec": dec}]}
+
+    monkeypatch.setattr(jc, "known_in_field", fake_field)
+    res = client.get("/api/v1/sky/objects?ra=83.9&dec=-5.3&radius=1.0")
     assert res.status_code == 200
     payload = res.json()
     assert payload["success"] is True
+    assert payload["data"][0]["name"] == "4 Vesta (A807 FA)"
+    assert payload["data"][0]["is_simulated"] is False
 
 
 # ============================================================================
@@ -182,31 +190,8 @@ def test_detection_run_and_candidates(client: TestClient) -> None:
 # Catalog Routes Tests
 # ============================================================================
 
-def test_catalog_search(client: TestClient) -> None:
-    """Test GET /api/v1/catalog/search."""
-    res = client.get("/api/v1/catalog/search?query=Ceres&limit=5")
-    assert res.status_code == 200
-    payload = res.json()
-    assert payload["success"] is True
-
-
-def test_catalog_ephemeris(client: TestClient) -> None:
-    """Test GET /api/v1/catalog/ephemeris."""
-    res = client.get("/api/v1/catalog/ephemeris?target=Ceres&start_time=now&step_size=1d")
-    assert res.status_code == 200
-    payload = res.json()
-    assert payload["success"] is True
-    assert isinstance(payload["data"], dict)
-    assert payload["data"]["target"] == "Ceres"
-    assert "entries" in payload["data"]
-
-
-def test_catalog_nearby(client: TestClient) -> None:
-    """Test GET /api/v1/catalog/nearby."""
-    res = client.get("/api/v1/catalog/nearby?ra=84.0&dec=-5.0&radius=1.0")
-    assert res.status_code == 200
-    payload = res.json()
-    assert payload["success"] is True
+# Catalog endpoints now call live NASA/JPL services; they are tested offline with recorded
+# payloads in tests/test_catalog_live.py.
 
 
 # ============================================================================
@@ -224,8 +209,14 @@ def test_planetx_evidence(client: TestClient) -> None:
     assert payload["is_simulated"] is True
 
 
-def test_planetx_tnos(client: TestClient) -> None:
-    """Test GET /api/v1/planetx/tnos."""
+def test_planetx_tnos(client: TestClient, monkeypatch) -> None:
+    """Test GET /api/v1/planetx/tnos (offline: live lookup fails -> literature table)."""
+    import app.api.routes.planetx as px
+
+    async def offline():
+        raise RuntimeError("offline test")
+
+    monkeypatch.setattr(px, "etno_analysis", offline)
     res = client.get("/api/v1/planetx/tnos")
     assert res.status_code == 200
     payload = res.json()

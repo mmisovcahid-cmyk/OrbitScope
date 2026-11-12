@@ -1,189 +1,146 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, MapPin, Zap, Target, Database, GitBranch } from 'lucide-react';
-import StatusBadge from '../components/common/StatusBadge';
-import CoordinateDisplay from '../components/common/CoordinateDisplay';
+import { Link, useParams } from 'react-router-dom';
+import { ArrowLeft, CheckCircle2, XCircle, HelpCircle, Download, Eye, Database, AlertTriangle } from 'lucide-react';
 import LoadingSpinner from '../components/common/LoadingSpinner';
-import ErrorDisplay from '../components/common/ErrorDisplay';
-import { detectionService, catalogService } from '../services';
+import { spherexService } from '../services';
+import api from '../services/api';
+import { CLASS_COLORS, Candidate, ReviewStatus, errorText, formatDec, formatRA } from '../lib/spherex';
 
+interface Run { id: string; created_at: string; params: Record<string, unknown>; summary: Record<string, unknown> }
+
+const card = 'rounded-2xl border border-white/[0.08] bg-[#0a1020]/80 p-4';
+
+/** Detail page of one saved (real-data) candidate: /analysis/:id */
 export default function AnalysisPage() {
-  const { id } = useParams<{ id: string }>();
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const [candidate, setCandidate] = useState<any>(null);
-  const [crossMatch, setCrossMatch] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { id = '' } = useParams();
+  const [cand, setCand] = useState<(Candidate & { run?: Run | null }) | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  const load = useCallback(async () => {
-    if (!id) return;
-    setLoading(true);
+  useEffect(() => {
+    spherexService.candidate(id)
+      .then((res) => { setCand(res.data?.data ?? null); setNote(res.data?.data?.note ?? ''); })
+      .catch((e) => setError(errorText(e, t('blink.errors.timeout'), t('blink.errors.network', { url: api.defaults.baseURL }))));
+  }, [id, t]);
+
+  const review = async (status: ReviewStatus) => {
+    if (!cand) return;
+    setSaving(true);
     try {
-      const res = await detectionService.getCandidate(id);
-      const c = res.data?.data ?? res.data;
-      setCandidate(c);
-      // Try cross-match
-      if (c?.ra && c?.dec) {
-        try {
-          const cmRes = await catalogService.getNearby(c.ra, c.dec);
-          setCrossMatch(cmRes.data?.data ?? cmRes.data);
-        } catch { /* ok */ }
-      }
-    } catch (e: any) {
-      setError(e.message);
+      const res = await spherexService.review(cand.id, status, note);
+      setCand({ ...cand, ...res.data?.data });
+    } catch (e) {
+      setError(errorText(e, t('blink.errors.timeout')));
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
-  }, [id]);
+  };
 
-  useEffect(() => { load(); }, [load]);
+  if (error) {
+    return (
+      <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-3">
+        <Link to="/detection" className="text-xs text-sky-400 flex items-center gap-1"><ArrowLeft className="w-3.5 h-3.5" />{t('nav.detection')}</Link>
+        <div className={`${card} border-red-500/30 text-sm text-red-200 flex gap-2`}><AlertTriangle className="w-4 h-4 shrink-0" />{error}</div>
+      </div>
+    );
+  }
+  if (!cand) return <LoadingSpinner text={t('common.loading')} />;
 
-  if (loading) return <LoadingSpinner text={t('common.loading')} />;
-  if (error) return <ErrorDisplay message={error} onRetry={load} />;
-  if (!candidate) return <ErrorDisplay message={t('analysis.notFound')} />;
-
-  const c = candidate;
+  const p = (cand.run?.params ?? {}) as Record<string, unknown>;
+  const dets = Array.isArray(p.detectors) ? (p.detectors as number[]).join(',') : 'all';
+  const blinkQ = new URLSearchParams({
+    ra: cand.ra.toFixed(6), dec: cand.dec.toFixed(6), fov: '0.1', det: dets,
+    ...(cand.search === 'asteroids'
+      ? { mode: 'pass', max: String(p.max_frames ?? 36), ...(p.pass_index != null ? { pass: String(p.pass_index) } : {}) }
+      : { mode: 'epoch', per: '4' }),
+  });
+  const status = (cand.status ?? 'unreviewed') as ReviewStatus;
+  const color = CLASS_COLORS[cand.class] ?? '#e5e7eb';
+  const rate = cand.search === 'asteroids' ? `${cand.rate_arcsec_per_hour.toFixed(1)}″/h` : `${cand.rate_arcsec_per_year.toFixed(2)}″/yr`;
+  const btn = (s: ReviewStatus, Icon: typeof CheckCircle2, cls: string) => (
+    <button disabled={saving} onClick={() => review(s)}
+      className={`px-3 py-1.5 rounded-lg text-xs border flex items-center gap-1 ${status === s ? `${cls} bg-white/10 border-white/20` : 'text-gray-400 border-white/10 hover:text-gray-200'}`}>
+      <Icon className="w-4 h-4" /> {t(`detect.review.${s}`)}
+    </button>
+  );
 
   return (
-    <div className="space-y-5 p-4 md:p-6">
-      {/* Back button + Header */}
-      <div className="flex items-start gap-3">
-        <button onClick={() => navigate(-1)} className="mt-1 p-1.5 rounded-lg hover:bg-white/5 text-gray-500">
-          <ArrowLeft className="w-4 h-4" />
-        </button>
-        <div className="flex-1">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-xl font-bold text-white font-mono">{c.id}</h1>
-            <StatusBadge status={c.status} size="lg" />
-            {c.is_simulated && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">[SIMULATED]</span>
+    <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">
+      <Link to="/detection" className="text-xs text-sky-400 flex items-center gap-1"><ArrowLeft className="w-3.5 h-3.5" />{t('nav.detection')}</Link>
+
+      <div className={card}>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-bold text-white font-mono">{cand.id}</h1>
+            <div className="text-sm mt-1" style={{ color }}>{t(`detect.classes.${cand.class}`, { defaultValue: cand.class })} · {t('detect.score')} {cand.score}</div>
+            <p className="text-xs text-gray-400 mt-2 max-w-2xl">{t(`detect.explain.${cand.class}`, { defaultValue: '' })}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link to={`/?${blinkQ}`} className="px-3 py-1.5 rounded-lg bg-sky-500/15 border border-sky-500/30 text-xs text-sky-200 flex items-center gap-1"><Eye className="w-4 h-4" /> Blink</Link>
+            <a href={spherexService.exportUrl(cand.id)} className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-200 flex items-center gap-1"><Download className="w-4 h-4" /> CSV</a>
+            {cand.match?.type === 'known_sso' && (
+              <Link to={`/catalog?q=${encodeURIComponent(cand.match.name.split(' (')[0])}`} className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-200 flex items-center gap-1"><Database className="w-4 h-4" /> JPL</Link>
             )}
           </div>
-          <p className="text-sm text-gray-500 mt-1">{t('analysis.subtitle')}</p>
         </div>
       </div>
 
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Measurements */}
-        <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
-          <h2 className="text-sm font-medium text-gray-300 mb-4 flex items-center gap-2">
-            <Zap className="w-4 h-4 text-blue-400" /> {t('analysis.measurements.title')}
-          </h2>
-          <div className="space-y-3">
-            <Metric label={t('common.coordinates')} value={<CoordinateDisplay ra={c.ra ?? 0} dec={c.dec ?? 0} />} />
-            <Metric label={t('analysis.measurements.displacement')} value={`${(c.displacement_arcsec ?? 0).toFixed(3)} ${t('analysis.measurements.arcsec')}`} />
-            <Metric label={t('analysis.measurements.positionAngle')} value={`${(c.position_angle_deg ?? 0).toFixed(1)}°`} />
-            <Metric label={t('analysis.measurements.snr')} value={`${(c.snr ?? c.snr_epoch1 ?? 0).toFixed(2)} (Epoch 1), ${(c.snr_epoch2 ?? 0).toFixed(2)} (Epoch 2)`} />
-            <Metric label={t('analysis.measurements.fluxRatio')} value={(c.flux_ratio ?? 1).toFixed(3)} />
-            <Metric label={t('analysis.measurements.velocity')} value={`${(c.proper_motion_arcsec_per_day ?? c.apparent_velocity_arcsec_per_day ?? 0).toFixed(4)} ${t('analysis.measurements.arcsecPerDay')}`} />
-            <Metric label={t('analysis.measurements.timeInterval')} value={`${(c.time_baseline_days ?? c.time_interval_days ?? 0).toFixed(1)} ${t('analysis.measurements.days')}`} />
-            <Metric label={t('analysis.header.confidence')} value={
-              <div className="flex items-center gap-2">
-                <div className="w-20 h-1.5 rounded-full bg-white/5">
-                  <div className="h-full rounded-full bg-blue-500" style={{ width: `${(c.confidence ?? 0) * 100}%` }} />
-                </div>
-                <span>{((c.confidence ?? 0) * 100).toFixed(0)}%</span>
-              </div>
-            } />
-          </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className={card}>
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">{t('analysisLive.measurement')}</h3>
+          <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+            <dt className="text-gray-500">RA / Dec</dt><dd className="font-mono text-gray-200">{formatRA(cand.ra)} {formatDec(cand.dec)}</dd>
+            <dt className="text-gray-500">{t('analysisLive.epoch')}</dt><dd className="text-gray-200">{cand.t0_date?.replace('T', ' ').replace('Z', ' UTC')}</dd>
+            <dt className="text-gray-500">{t('detect.col.rate')}</dt><dd className="text-gray-200">{rate}{cand.position_angle_deg != null ? ` · PA ${cand.position_angle_deg}°` : ''}</dd>
+            <dt className="text-gray-500">{t('detect.fitRms')}</dt><dd className="text-gray-200">{cand.rms_px} px</dd>
+            <dt className="text-gray-500">{t('analysisLive.detections')}</dt><dd className="text-gray-200">{cand.n_detections} · {cand.n_detectors} {t('analysisLive.detectors')}</dd>
+            <dt className="text-gray-500">S/N</dt><dd className="text-gray-200">{cand.mean_z}</dd>
+            {cand.match && (<>
+              <dt className="text-gray-500">{t('detect.col.match')}</dt>
+              <dd className="text-gray-200">{cand.match.name} ({cand.match.sep_arcsec}″)</dd>
+            </>)}
+          </dl>
         </div>
-
-        {/* Image Cutouts */}
-        <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
-          <h2 className="text-sm font-medium text-gray-300 mb-4 flex items-center gap-2">
-            <Target className="w-4 h-4 text-blue-400" /> {t('analysis.images.title')}
-          </h2>
-          <div className="grid grid-cols-3 gap-2">
-            <ImageSlot label={t('analysis.images.observation1')} data={c.cutout_epoch1} />
-            <ImageSlot label={t('analysis.images.observation2')} data={c.cutout_epoch2} />
-            <ImageSlot label={t('analysis.images.difference')} data={c.cutout_diff} />
+        <div className={card}>
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">{t('analysisLive.review')}</h3>
+          <div className="flex flex-wrap gap-2">
+            {btn('real', CheckCircle2, 'text-emerald-400')}
+            {btn('artifact', XCircle, 'text-red-400')}
+            {btn('unsure', HelpCircle, 'text-amber-300')}
           </div>
-        </div>
-
-        {/* Classification */}
-        <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
-          <h2 className="text-sm font-medium text-gray-300 mb-4 flex items-center gap-2">
-            <GitBranch className="w-4 h-4 text-violet-400" /> {t('analysis.classification.title')}
-          </h2>
-          <div className="space-y-3">
-            <Metric label={t('analysis.classification.status')} value={<StatusBadge status={c.status} />} />
-            <Metric label={t('analysis.classification.reason')} value={c.classification_reason ?? c.classification ?? '—'} />
-            <Metric label={t('analysis.classification.confidence')} value={((c.confidence ?? 0) * 100).toFixed(0) + '%'} />
-            {c.anomaly_score != null && (
-              <Metric label="Anomaly Score" value={c.anomaly_score.toFixed(3)} />
-            )}
-          </div>
-        </div>
-
-        {/* Cross-Match Results */}
-        <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
-          <h2 className="text-sm font-medium text-gray-300 mb-4 flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-emerald-400" /> {t('analysis.crossMatch.title')}
-          </h2>
-          {c.catalog_match_name ? (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-emerald-400 text-sm">✓ {t('analysis.crossMatch.matchFound')}</div>
-              <Metric label={t('analysis.crossMatch.objectName')} value={c.catalog_match_name} />
-              <Metric label={t('analysis.crossMatch.separation')} value={`${(c.catalog_match_distance_arcsec ?? 0).toFixed(2)}"`} />
-            </div>
-          ) : crossMatch && Array.isArray(crossMatch) && crossMatch.length > 0 ? (
-            <div className="space-y-2">
-              {crossMatch.slice(0, 5).map((obj: any, i: number) => (
-                <div key={i} className="p-2 rounded-lg bg-white/[0.02] border border-white/5 text-xs">
-                  <span className="text-emerald-400">{obj.name ?? obj.designation}</span>
-                  <span className="text-gray-500 ml-2">{obj.type}</span>
-                  {obj.note && <p className="text-[10px] text-gray-600 mt-1">{obj.note}</p>}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-gray-600">{t('analysis.crossMatch.noMatch')}</p>
+          <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={2000}
+            placeholder={t('analysisLive.notePlaceholder')}
+            className="mt-3 w-full px-3 py-2 rounded-lg bg-[#0b1224] border border-white/10 text-xs text-white" />
+          <p className="text-[10px] text-gray-600 mt-1">{t('analysisLive.noteHint')}</p>
+          {cand.run && (
+            <p className="text-[10px] text-gray-500 mt-3 font-mono">{cand.run.id} · {String(cand.run.params.search)} · {cand.run.created_at}</p>
           )}
         </div>
       </div>
 
-      {/* Provenance */}
-      <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
-        <h2 className="text-sm font-medium text-gray-300 mb-4 flex items-center gap-2">
-          <Database className="w-4 h-4 text-gray-400" /> {t('analysis.provenance.title')}
-        </h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-          <Metric label={t('analysis.provenance.source')} value={c.data_source_type ?? 'simulated'} />
-          <Metric label={t('analysis.provenance.pipeline')} value={c.pipeline_version ?? '1.0.0'} />
-          <Metric label={t('analysis.provenance.simulated')} value={c.is_simulated ? t('analysis.provenance.yes') : t('analysis.provenance.no')} />
-          <Metric label={t('analysis.header.detectedOn')} value={c.detected_at ? new Date(c.detected_at).toLocaleString() : '—'} />
+      <div className={card}>
+        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">{t('analysisLive.astrometry')}</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs font-mono">
+            <thead className="text-gray-500 border-b border-white/5">
+              <tr><th className="text-left py-1">UTC</th><th>D</th><th className="text-left">RA (°)</th><th className="text-left">Dec (°)</th><th>S/N</th><th>{t('analysisLive.onStar')}</th></tr>
+            </thead>
+            <tbody>
+              {cand.detections.map((d) => (
+                <tr key={d.frame} className="border-b border-white/[0.03] text-gray-300">
+                  <td className="py-1">{d.date.replace('T', ' ').replace('Z', '')}</td><td className="text-center">{d.detectors.join('/')}</td>
+                  <td>{d.ra.toFixed(6)}</td><td>{d.dec.toFixed(6)}</td><td className="text-center">{d.z}</td>
+                  <td className="text-center">{d.on_star ? '●' : ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
+        <p className="text-[10px] text-gray-600 mt-2">{t('detect.disclaimer')}</p>
       </div>
-    </div>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: any }) {
-  return (
-    <div className="flex justify-between items-start gap-3">
-      <span className="text-xs text-gray-500 shrink-0">{label}</span>
-      <span className="text-xs text-gray-300 text-right">{typeof value === 'string' || typeof value === 'number' ? value : value}</span>
-    </div>
-  );
-}
-
-function ImageSlot({ label, data }: { label: string; data?: string | null }) {
-  return (
-    <div className="text-center">
-      <div className="aspect-square rounded-lg bg-white/[0.03] border border-white/5 flex items-center justify-center overflow-hidden mb-1">
-        {data ? (
-          <img src={`data:image/png;base64,${data}`} alt={label} className="w-full h-full object-contain" />
-        ) : (
-          <div className="text-[10px] text-gray-600 p-2">
-            <Target className="w-6 h-6 mx-auto mb-1 opacity-20" />
-            No image
-          </div>
-        )}
-      </div>
-      <span className="text-[10px] text-gray-500">{label}</span>
     </div>
   );
 }

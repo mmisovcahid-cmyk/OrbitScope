@@ -278,37 +278,37 @@
     "subtitle": "Scientific methodology, data sources, and platform documentation",
     "overview": {
       "title": "Platform Overview",
-      "description": "OrbitScope is a scientific monitoring platform designed to support the detection and characterization of moving objects in the NASA SPHEREx all-sky survey data. The platform provides tools for multi-epoch observation comparison, automated detection pipelines, and cross-matching with known solar system object catalogs.",
-      "mission": "Our mission is to facilitate the discovery of new solar system objects and support the scientific community in analyzing SPHEREx survey data."
+      "description": "OrbitScope is a public web tool for exploring how the sky changes in real NASA SPHEREx images. Enter an object name or coordinates and it plays every SPHEREx exposure of that spot as a short, aligned movie; it can search those images for moving objects and check every detection against NASA/JPL, Gaia and CatWISE catalogs.",
+      "mission": "Goal: make SPHEREx's time-domain data easy to look at for everyone, so that moving and changing objects - asteroids, comets, nearby stars and brown dwarfs - can be spotted and checked by eye."
     },
     "methodology": {
       "title": "Detection Methodology",
-      "step1Title": "Image Alignment",
-      "step1Desc": "Multi-epoch observations are aligned using astrometric solutions and reference star matching.",
-      "step2Title": "Image Subtraction",
-      "step2Desc": "Aligned images are subtracted to reveal changes between epochs, highlighting moving or variable objects.",
-      "step3Title": "Source Extraction",
-      "step3Desc": "Significant residuals are identified using threshold-based detection algorithms with noise estimation.",
-      "step4Title": "Cross-Matching",
-      "step4Desc": "Detected sources are cross-matched against JPL's Small-Body Database and other catalogs.",
-      "step5Title": "Classification",
-      "step5Desc": "Candidates are classified based on motion characteristics, SNR, and catalog cross-match results."
+      "step1Title": "Real SPHEREx data",
+      "step1Desc": "Level-2 images are found with IRSA's TAP service (new public releases are picked up automatically), cut out around the target, zodiacal light and flagged pixels are removed.",
+      "step2Title": "Alignment and stacking",
+      "step2Desc": "Every exposure is reprojected onto one north-up grid (using the SIP-distorted WCS of each image); exposures of one survey pass are stacked by inverse variance.",
+      "step3Title": "Moving-object search",
+      "step3Desc": "Asteroids: a static-sky template per detector is subtracted and residuals are linked within SPHEREx's ~7-minute visits. Stars/brown dwarfs: sources are centroided in each pass and significant shifts are reported.",
+      "step4Title": "Cross-matching",
+      "step4Desc": "Detections are compared with known asteroids and comets from JPL SB Ident and with Gaia DR3 / CatWISE2020 stars, including their proper motions.",
+      "step5Title": "Review",
+      "step5Desc": "Candidates are classified (known object, new mover, stationary transient, variable) and stored; users mark them real / artifact and export the astrometry as CSV."
     },
     "dataSources": {
       "title": "Data Sources",
-      "spherex": "NASA SPHEREx all-sky survey infrared spectral data",
-      "jpl": "JPL Small-Body Database for solar system object catalogs",
-      "mpc": "Minor Planet Center for orbital element data",
-      "gaia": "ESA Gaia catalog for astrometric reference stars",
-      "note": "Note: This platform currently operates with simulated data for demonstration purposes. Real SPHEREx survey data integration is planned for future releases."
+      "spherex": "NASA SPHEREx Level-2 spectral images (NASA/IPAC IRSA: TAP, datalink, IBE cutouts)",
+      "jpl": "NASA/JPL Small-Body Database, Horizons and SB Ident APIs",
+      "mpc": "CDS Sesame and NED name resolvers (object names to coordinates)",
+      "gaia": "ESA Gaia DR3 and CatWISE2020 (IRSA) reference catalogs",
+      "note": "All data shown in SPHEREx Blink, Sky Explorer, Detection, Comparison, Catalog and the Planet X clustering test is real and fetched live from these public services; none of them needs an API key. Literature values (Planet X evidence and predictions) are labelled as such."
     },
     "limitations": {
       "title": "Limitations & Disclaimers",
-      "item1": "Detection sensitivity is limited by observation cadence and image quality.",
-      "item2": "Cross-match completeness depends on the coverage of reference catalogs.",
-      "item3": "Simulated data may not fully represent real SPHEREx instrument characteristics.",
-      "item4": "Classification algorithms are under active development and may produce false positives.",
-      "item5": "Planet X evidence is theoretical and based on published research; no direct detection has been made."
+      "item1": "Single SPHEREx exposures reach about V≈17-18 for moving objects; fainter asteroids are usually not detected.",
+      "item2": "Very bright stars saturate SPHEREx's detectors and are excluded from photometry and astrometry.",
+      "item3": "The asteroid search links detections within one ~7-minute visit, so very slow movers (e.g. a distant Planet Nine) look static.",
+      "item4": "Candidates are not discoveries: they need independent confirmation and must be reported through the proper channels.",
+      "item5": "Planet X evidence is a published hypothesis; the clustering test here does not correct for survey selection bias."
     },
     "credits": {
       "title": "Credits & References",
@@ -316,7 +316,7 @@
       "jplSSD": "JPL Solar System Dynamics Group",
       "caltech": "California Institute of Technology",
       "battygin": "Batygin & Brown (2016) - Evidence for a Distant Giant Planet",
-      "license": "This platform is developed for educational and research purposes."
+      "license": "Built for the NASA Space Apps Challenge for educational and research use. SPHEREx data courtesy of NASA/JPL-Caltech and NASA/IPAC IRSA."
     }
   },
   "common": {
@@ -632,5 +632,145 @@
     "queued": "Other searches are running; this one starts as soon as a slot is free.",
     "cancel": "Cancel",
     "cancelled": "Cancelled."
+  },
+  "catalogLive": {
+    "subtitle": "Live data from NASA/JPL: the Small-Body Database (orbits, physical data, close approaches), Horizons (current position and ephemeris) and SB Ident (known objects in any sky field). Nothing on this page is simulated.",
+    "placeholder": "Name, number or designation: Ceres, 433, 2004 MN4, 1P…",
+    "popular": "Popular:",
+    "matches": "{{n}} objects match - choose one:",
+    "kind": {
+      "asteroid": "Asteroid",
+      "comet": "Comet"
+    },
+    "designation": "Designation",
+    "moid": "Earth MOID",
+    "tisserand": "Tisserand parameter (Jupiter)",
+    "rotation": "Rotation period",
+    "spectral": "Spectral type",
+    "orbitQuality": "Orbit quality",
+    "conditionCode": "Uncertainty (condition code, 0 = best)",
+    "observations": "Observations used",
+    "arc": "Observed arc",
+    "ephemTitle": "Where is it now? (JPL Horizons)",
+    "ephemNote": "Geocentric astrometric position for the next 7 days.",
+    "now": "Now",
+    "mag": "mag",
+    "fromEarth": "from Earth",
+    "elongation": "Elongation",
+    "approaches": "Close approaches ({{n}} in JPL's list)",
+    "date": "Date (TDB)",
+    "body": "Body",
+    "distance": "Distance",
+    "fieldTitle": "Which known asteroids/comets were in a field?",
+    "fieldNote": "Ask JPL which known small bodies were inside a sky field at a given UTC time - e.g. the time of a SPHEREx exposure. The example is the field where OrbitScope recovered 626 Notburga.",
+    "radius": "Radius (°)",
+    "timeUtc": "Time (UTC)",
+    "fieldSlow": "JPL SB Ident integrates all known orbits - this takes ~20 seconds.",
+    "fieldNone": "No known asteroids or comets brighter than V=21 in this field at that time.",
+    "object": "Object",
+    "sep": "Offset",
+    "details": "Details",
+    "toDetection": "Search this field in real SPHEREx exposures:"
+  },
+  "planetxLive": {
+    "subtitle": "The Planet Nine hypothesis, tested on live orbits from NASA/JPL. The clustering statistics on this page are computed by OrbitScope; the evidence cards and predicted parameters are literature values.",
+    "testTitle": "Is the orbital clustering real? (live JPL orbits)",
+    "testIntro": "Distant detached TNOs (a ≥ 150 AU, q ≥ 30 AU) are fetched from the JPL Small-Body Database right now. The Rayleigh test asks whether their orbital angles point in a preferred direction more than chance would allow.",
+    "loading": "Fetching ~20 orbits from JPL…",
+    "angle": {
+      "varpi": "Longitude of perihelion",
+      "node": "Longitude of ascending node",
+      "argperi": "Argument of perihelion"
+    },
+    "mean": "mean",
+    "verdict": {
+      "strong": "Significant clustering (p < 0.01)",
+      "weak": "Weak evidence (p < 0.05)",
+      "none": "Consistent with random"
+    },
+    "periPlot": "Perihelion directions (q·cos ϖ, q·sin ϖ) - dashed line: mean direction",
+    "periNote": "If orbits were randomly oriented, the points would surround the Sun evenly. They bunch around ϖ ≈ {{mean}}°.",
+    "aqPlot": "Semi-major axis vs perihelion distance",
+    "caveatTitle": "Caveat:",
+    "caveat": "Surveys only find distant TNOs where and when they looked, so observational selection can create apparent clustering. Analyses that model survey biases (Shankman et al. 2017; Napier et al. 2021) find the clustering consistent with no Planet Nine. This test does not correct for selection bias.",
+    "table": "Orbit table ({{n}} objects)",
+    "missing": "{{n}} object(s) could not be fetched right now",
+    "spherexTitle": "Could SPHEREx or OrbitScope find Planet Nine?",
+    "spherexText": "Predicted Planet Nine is very faint (likely V ≈ 20–24) and, at 300–500 AU, moves only ~0.3″ per hour, mostly from Earth's own motion. OrbitScope's asteroid search links detections inside a ~7-minute SPHEREx visit, so such a slow mover looks static and would not be detected; a dedicated multi-day search would be needed. This is an honest limitation of the current tool.",
+    "literature": "Literature summary - not measured by OrbitScope.",
+    "strength": {
+      "strong": "strong",
+      "moderate": "moderate",
+      "suggestive": "suggestive"
+    },
+    "predSource": "Brown & Batygin (2021), AJ 162:219 - literature values, not measured here.",
+    "pred": {
+      "mass": "Mass",
+      "a": "Semi-major axis",
+      "q": "Perihelion distance",
+      "i": "Inclination",
+      "period": "Orbital period"
+    }
+  },
+  "analysisLive": {
+    "measurement": "Measurement",
+    "epoch": "Reference epoch",
+    "detections": "Detections",
+    "detectors": "detector(s)",
+    "review": "Your review",
+    "notePlaceholder": "Note (e.g. 'clearly moves in Blink, not on a star')",
+    "noteHint": "The note is saved together with the review status.",
+    "astrometry": "Astrometry (one row per exposure)",
+    "onStar": "On star",
+    "open": "Details"
+  },
+  "dash": {
+    "title": "Sky Explorer",
+    "subtitle": "Everything on this page is live: the five challenge targets, the fields you searched and the candidates you found in real SPHEREx data. Click a marker on the map.",
+    "irsa": "NASA/IPAC IRSA",
+    "online": "Online",
+    "offline": "Unreachable",
+    "cache": "Cached SPHEREx exposures",
+    "cacheDetail": "{{mb}} MB of {{limit}} MB",
+    "searches": "Saved searches",
+    "running": "{{n}} running now",
+    "recentOnly": "latest shown on the map",
+    "candidates": "Saved candidates",
+    "reviewed": "{{n}} reviewed",
+    "legend": {
+      "targets": "challenge targets",
+      "candidates": "your candidates",
+      "searches": "searched fields",
+      "ecliptic": "ecliptic (asteroids)",
+      "galaxy": "Milky Way plane"
+    },
+    "pick": "Click a marker on the map.",
+    "challengeTarget": "Challenge target",
+    "search": "Search",
+    "runSummary": "{{n}} candidates from {{frames}} frames",
+    "reopen": "Open this search",
+    "byClass": "Candidates by class",
+    "noCandidates": "No candidates yet - run a search:",
+    "recent": "Recent searches",
+    "noRuns": "No searches yet.",
+    "mission": "SPHEREx mission",
+    "fact1": "Launched 11 March 2025; maps the whole sky every ~6 months.",
+    "fact2": "102 spectral channels, 0.75–5.0 µm (6 detector arrays with linear variable filters).",
+    "fact3": "6.2″ pixels, 3.5° × 11.3° field of view.",
+    "fact4": "Public Quick Release images at NASA/IPAC IRSA - used directly by OrbitScope."
+  },
+  "cmp": {
+    "subtitle": "Put two real SPHEREx survey passes of the same field next to each other (same stretch), subtract them, blink or overlay them.",
+    "intro": "Choose an object or coordinates. OrbitScope stacks each SPHEREx survey pass of that field and lets you compare any two of them.",
+    "epochA": "Pass A",
+    "epochB": "Pass B",
+    "mode": {
+      "side": "Side by side",
+      "difference": "Difference",
+      "blink": "Blink",
+      "overlay": "Overlay"
+    },
+    "baseline": "Time between A and B: {{days}} days",
+    "diffHelp": "Red = brighter in B, blue = brighter in A. A moving star leaves a blue/red pair; a variable star a single colour."
   }
 }

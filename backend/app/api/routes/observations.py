@@ -20,7 +20,7 @@ from app.models.schemas import (
 
 logger = get_logger("routes.observations")
 
-router = APIRouter(prefix="/api/v1/observations", tags=["Observations"])
+router = APIRouter(prefix="/api/v1/observations", tags=["Legacy demo (simulated data)"], deprecated=True)
 
 MESSAGES: dict[str, dict[str, str]] = {
     "en": {
