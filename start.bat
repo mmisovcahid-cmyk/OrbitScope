@@ -1,4 +1,4 @@
-n@echo off
+@echo off
 echo ========================================================
 echo   Starting OrbitScope Platform (Backend + Frontend)
 echo   SPHEREx Time-Domain Sky Monitoring System
