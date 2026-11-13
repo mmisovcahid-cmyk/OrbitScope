@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from typing import Any, AsyncGenerator
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -20,6 +21,7 @@ from app.api.routes.system import router as system_router
 from app.core.config import settings
 from app.core.logging_config import get_logger, setup_logging
 from app.core.rate_limit import RateLimitMiddleware
+from app.core.validation_i18n import localize_errors
 
 
 @asynccontextmanager
@@ -35,7 +37,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     import asyncio as _asyncio
 
     _asyncio.get_running_loop().run_in_executor(None, _archive.prune_cache)
+
+    # Public deployments: fetch the challenge targets' data before the first visitor asks for it.
+    warm_task = None
+    if settings.PREWARM_ON_STARTUP:
+        from app.services.prewarm import prewarm
+
+        async def _warm() -> None:
+            try:
+                await prewarm(log=logger.info)
+            except Exception as exc:  # noqa: BLE001 - never take the server down
+                logger.warning(f"Startup prewarm failed: {exc}")
+
+        warm_task = _asyncio.create_task(_warm())
     yield
+    if warm_task is not None and not warm_task.done():
+        warm_task.cancel()
     logger.info("OrbitScope backend shutting down.")
 
 
@@ -66,6 +83,15 @@ async def json_errors(request: Request, call_next):
 # Per-client limit on the expensive endpoints (IRSA downloads, detection, JPL lookups).
 # Added before CORS so 429 responses still carry CORS headers.
 app.add_middleware(RateLimitMiddleware)
+
+@app.exception_handler(RequestValidationError)
+async def validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """422 with one readable sentence in the request's language (the raw list stays in `errors`)."""
+    errors = exc.errors()
+    raw = [{k: v for k, v in e.items() if k in ("type", "loc", "msg")} for e in errors]
+    locale = request.query_params.get("locale", "en")
+    return JSONResponse(status_code=422, content={"detail": localize_errors(errors, locale), "errors": raw})
+
 
 # Configure CORS Middleware
 origins = settings.CORS_ORIGINS if isinstance(settings.CORS_ORIGINS, list) else [str(settings.CORS_ORIGINS)]

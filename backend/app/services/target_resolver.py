@@ -10,6 +10,7 @@ Turns user input into ICRS coordinates (+ proper motion when known):
 """
 from __future__ import annotations
 
+import math
 import re
 from typing import Any, Optional
 from urllib.parse import quote
@@ -96,6 +97,31 @@ def find_builtin(text: str) -> Optional[dict[str, Any]]:
     return None
 
 
+COORD_MATCH_ARCSEC = 30.0
+
+
+def builtin_near(ra: float, dec: float) -> Optional[tuple[dict[str, Any], int]]:
+    """A challenge target whose track (1990-2035) passes within 30" of these coordinates.
+
+    Coordinates of a fast mover are only valid at one epoch: the challenge lists WISE 0855 at
+    its ~2010 position, about 2' from where SPHEREx sees it. Recognising the target lets the
+    proper motion be applied, so the viewer is centred on the object and marks it.
+    """
+    best: Optional[tuple[float, dict[str, Any], int]] = None
+    for t in BUILTIN_TARGETS:
+        if abs(t["dec"] - dec) > 0.2:
+            continue
+        cosd = math.cos(math.radians(t["dec"]))
+        for year in range(1990, 2036):
+            dt = year - t["ref_epoch"]
+            tra = t["ra"] + t["pmra"] / 3.6e6 * dt / max(cosd, 1e-6)
+            tdec = t["dec"] + t["pmdec"] / 3.6e6 * dt
+            sep = math.hypot((tra - ra) * cosd, tdec - dec) * 3600.0
+            if sep <= COORD_MATCH_ARCSEC and (best is None or sep < best[0]):
+                best = (sep, t, year)
+    return (best[1], best[2]) if best else None
+
+
 async def _sesame(client: httpx.AsyncClient, name: str) -> Optional[dict[str, Any]]:
     for url in SESAME_MIRRORS:
         try:
@@ -138,6 +164,12 @@ async def resolve(text: str) -> Optional[dict[str, Any]]:
     query = text.strip()
     coords = parse_coordinates(query)
     if coords:
+        known = builtin_near(coords[0], coords[1])
+        if known:
+            t, year = known
+            return {**{k: t[k] for k in ("ra", "dec", "pmra", "pmdec", "ref_epoch", "note", "detector")},
+                    "name": t["name"], "id": t["id"], "source": "coordinates -> built-in target (Gaia DR3 / SIMBAD)",
+                    "matched_epoch": year}
         return {"name": None, "ra": coords[0], "dec": coords[1], "pmra": None, "pmdec": None,
                 "ref_epoch": 2000.0, "source": "coordinates"}
 

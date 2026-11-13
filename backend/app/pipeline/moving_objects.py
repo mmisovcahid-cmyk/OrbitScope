@@ -44,6 +44,15 @@ VISIT_WINDOW_DAYS = 0.01
 NOISY_FRAME_FACTOR = 3.0  # skip frames whose residual noise is > 3x the detector's median
 MIN_MOVER_DETECTIONS = 3
 MAX_MOVER_RMS_PX = 0.8
+# Quality rules for an `unknown_mover` (validated on real SPHEREx fields, see docs/METHODOLOGY.md):
+MIN_MOTION_SIGNIFICANCE = 5.0   # single visit: net displacement >= 5x the scatter around the line
+CENTROID_ERR_FLOOR_PX = 0.15    # systematic centroid floor (PSF undersampling, reprojection)
+CENTROID_ERR_COEFF = 1.5        # statistical centroid error ~ 1.5 / z px (same as the PM search)
+MAX_RMS_OVER_ERR = 2.0          # scatter around the line <= 2x the expected centroid error
+MAX_FLUX_RATIO = 3.0            # same detector, same visit: brightness may vary by <= 3x
+BRIGHT_Z = 15.0                 # a source this bright must appear in most exposures of its visit
+MIN_BRIGHT_COMPLETENESS = 0.5
+EDGE_MOVER_PX = 8               # template is built from fewer exposures near the cutout edge
 
 
 @dataclass
@@ -286,8 +295,12 @@ def join_tracklets(tracks: list[Track], max_rate_px_per_day: float, max_gap_days
 
 # --------------------------------------------------------------------------- proper motion
 PM_MIN_SNR = 10.0
+FORCED_MIN_Z = 3.0        # forced (target) measurement: mean-image peak needed near the target
+FORCED_SEARCH_PX = 3.0    # how far from the expected target position that peak may be
 PM_SIGNIFICANCE = 5.0
 PM_MIN_SHIFT_PX = 0.25
+PM_MAX_RMS_FACTOR = 3.0   # epochs may scatter around the linear fit by at most 3x the centroid error
+PM_MIN_RMS_PX = 0.3
 VAR_MIN_RATIO = 1.6
 
 
@@ -324,6 +337,7 @@ def search_proper_motion(
     masks: list[Optional[np.ndarray]],
     mjds: list[float],
     detectors: list[tuple[int, ...]],
+    forced: Optional[list[tuple[float, float]]] = None,
 ) -> dict[str, Any]:
     """Astrometric proper-motion and variability search on a few deep epoch stacks.
 
@@ -332,6 +346,12 @@ def search_proper_motion(
     registration offsets are removed using all sources, the per-source positional noise
     is estimated from the (mostly static) star population, and sources whose displacement
     is significant are reported. Brightness changes are reported separately as variables.
+
+    ``forced`` lists pixel positions (mean over the epochs) of requested targets. They are
+    measured even when fainter than ``PM_MIN_SNR`` (e.g. WISE 0855 at 4.6 um), and always
+    reported, with their significance, so a non-detection is visible instead of silent. The
+    centroid starts from the target's *mean* position, never from a catalog prediction per
+    epoch, so the measured motion does not inherit the catalog's proper motion.
     """
     n_ep = len(arrays)
     if n_ep < 2:
@@ -364,6 +384,27 @@ def search_proper_motion(
         if np.sum(d < 4.0) == 1:
             keep.append(i)
     pts = pts[keep]
+
+    forced_idx: set[int] = set()
+    for fx, fy in forced or []:
+        if not (margin <= fx < w - margin and margin <= fy < h - margin):
+            continue
+        r = int(math.ceil(FORCED_SEARCH_PX))
+        x0, x1 = max(0, int(fx) - r), min(w, int(fx) + r + 2)
+        y0, y1 = max(0, int(fy) - r), min(h, int(fy) + r + 2)
+        win = zs[y0:y1, x0:x1]
+        yy, xx = np.mgrid[y0:y1, x0:x1]
+        win = np.where(np.hypot(xx - fx, yy - fy) <= FORCED_SEARCH_PX, win, -np.inf)
+        iy, ix = np.unravel_index(int(np.argmax(win)), win.shape)
+        if not np.isfinite(win[iy, ix]) or win[iy, ix] < FORCED_MIN_Z:
+            continue
+        px, py = x0 + ix, y0 + iy
+        near = np.hypot(pts[:, 0] - px, pts[:, 1] - py) if len(pts) else np.zeros(0)
+        if len(near) and near.min() <= 2.0:
+            forced_idx.add(int(np.argmin(near)))
+        else:
+            pts = np.vstack([pts, [px, py]]) if len(pts) else np.array([[px, py]], dtype=float)
+            forced_idx.add(len(pts) - 1)
 
     subs = []
     ep_sigma = []
@@ -428,11 +469,21 @@ def search_proper_motion(
         ratio = float(np.nanmax(fpos) / np.nanmin(fpos)) if np.nanmin(fpos) > 0 else float("inf")
         tr.extra.update({"pm_sigma": round(sig, 2), "shift_px": round(shift, 3), "pos_err_px": round(err, 3),
                          "flux_ratio": round(ratio, 2) if math.isfinite(ratio) else None, "snr": round(snr_k, 1)})
-        if sig >= PM_SIGNIFICANCE and shift >= PM_MIN_SHIFT_PX:
+        if k in forced_idx:
+            tr.extra["forced"] = True
+        # Real proper motion is linear over a few years. Three or more epochs that scatter far
+        # more than their centroid error around the fitted line are a blend, a PSF/edge effect
+        # or a variable neighbour, not a moving star.
+        linear = len(dets) < 3 or tr.rms_px <= max(PM_MAX_RMS_FACTOR * err, PM_MIN_RMS_PX)
+        tr.extra["linear"] = linear
+        if sig >= PM_SIGNIFICANCE and shift >= PM_MIN_SHIFT_PX and linear:
             tr.extra["pm_kind"] = "pm"
             tracks.append(tr)
-        elif ratio >= VAR_MIN_RATIO and float(np.nanmin(sn[k][ok])) >= 8.0:
+        elif ratio >= VAR_MIN_RATIO and float(np.nanmin(sn[k][ok])) >= 8.0 and k not in forced_idx:
             tr.extra["pm_kind"] = "var"
+            tracks.append(tr)
+        elif k in forced_idx:
+            tr.extra["pm_kind"] = "target"  # measured, but the shift is not significant
             tracks.append(tr)
     return {
         "tracks": tracks,
@@ -454,10 +505,11 @@ def search(
     pixscale_arcsec: float,
     mode: str = "asteroids",
     z_thresh: float = 5.0,
+    forced: Optional[list[tuple[float, float]]] = None,
 ) -> dict[str, Any]:
     """Run the full search. Returns tracks (unclassified) plus per-frame statistics."""
     if mode != "asteroids":
-        return search_proper_motion(arrays, masks, mjds, detectors)
+        return search_proper_motion(arrays, masks, mjds, detectors, forced=forced)
     if mode == "asteroids":
         templates = build_templates(arrays, [d for d in detectors])
         max_rate = 300.0 * 24.0 / pixscale_arcsec  # 300"/h
@@ -514,8 +566,11 @@ def search(
         tracks.append(tr)
     if mode == "asteroids":
         tracks = join_tracklets(tracks, max_rate)
+        searched = {s_["frame"] for s_ in frame_stats if s_.get("searched")}
+        shape = arrays[0].shape if arrays else (0, 0)
         for tr in tracks:
             tr.extra["recurrence"] = recurrence(tr, zmaps, mjds)
+            tr.extra.update(track_quality(tr, mjds, detectors, searched, shape))
     return {
         "tracks": tracks,
         "n_detections": len(all_dets),
@@ -524,6 +579,70 @@ def search(
         "searched_frames": sum(1 for s in frame_stats if s.get("searched")),
         "noisy_frames": sum(1 for s in frame_stats if s.get("reason") == "noisy"),
     }
+
+
+def track_quality(
+    track: Track, mjds: list[float], detectors: list[tuple[int, ...]], searched: set[int], shape: tuple[int, ...]
+) -> dict[str, Any]:
+    """Consistency checks that separate real movers from residual noise (see MIN_MOTION_SIGNIFICANCE).
+
+    - motion significance: displacement within one visit compared with the scatter of the points;
+      residuals at a fixed spot "zig-zag" around it instead of moving steadily;
+    - line scatter vs. the expected centroid error for the track's S/N;
+    - brightness consistency within a detector (an asteroid does not jump 10x in two minutes);
+    - completeness: a bright source must show up in most exposures of its visit in that detector;
+    - distance from the cutout edge.
+    """
+    dets = track.detections
+    zs = np.array([d.z for d in dets])
+    exp_err = max(CENTROID_ERR_FLOOR_PX, float(np.median(CENTROID_ERR_COEFF / np.maximum(zs, 1.0))))
+    first, last = min(dets, key=lambda d: d.mjd), max(dets, key=lambda d: d.mjd)
+    disp = math.hypot(last.x - first.x, last.y - first.y)
+    motion_sig = disp / max(track.rms_px, 0.1)
+    flux_ratio = 1.0
+    by_det: dict[int, list[Detection]] = {}
+    for d in dets:
+        for k in d.detectors:
+            by_det.setdefault(k, []).append(d)
+    completeness = 1.0
+    for k, lst in by_det.items():
+        z_k = [d.z for d in lst]
+        if len(z_k) >= 2:
+            flux_ratio = max(flux_ratio, max(z_k) / max(min(z_k), 1e-3))
+        if max(z_k) >= BRIGHT_Z:
+            # exposures of this detector in the same visit(s) as the track's detections
+            visits = {round(d.mjd / VISIT_WINDOW_DAYS) for d in lst}
+            avail = [i for i in searched if k in detectors[i]
+                     and any(abs(mjds[i] - d.mjd) <= VISIT_WINDOW_DAYS for d in lst)]
+            seen = {d.frame for d in lst}
+            if avail and visits:
+                completeness = min(completeness, len(seen & set(avail)) / len(avail))
+    h, w = shape[:2] if len(shape) >= 2 else (0, 0)
+    edge = min(min(d.x, d.y, w - 1 - d.x, h - 1 - d.y) for d in dets) if w and h else 99.0
+    return {
+        "motion_sigma": round(motion_sig, 2),
+        "expected_centroid_err_px": round(exp_err, 3),
+        "flux_ratio": round(flux_ratio, 2),
+        "bright_completeness": round(completeness, 2),
+        "edge_px": round(float(edge), 1),
+    }
+
+
+def mover_quality_ok(track: Track) -> tuple[bool, list[str]]:
+    """Apply the track_quality() rules. Returns (ok, reasons for rejection)."""
+    ex = track.extra
+    why = []
+    if track.visits <= 1 and ex.get("motion_sigma", 99) < MIN_MOTION_SIGNIFICANCE:
+        why.append("no_steady_motion")
+    if track.rms_px > MAX_RMS_OVER_ERR * ex.get("expected_centroid_err_px", 1.0):
+        why.append("scatter")
+    if ex.get("flux_ratio", 1.0) > MAX_FLUX_RATIO:
+        why.append("flux_jump")
+    if ex.get("bright_completeness", 1.0) < MIN_BRIGHT_COMPLETENESS:
+        why.append("missing_in_visit")
+    if ex.get("edge_px", 99) < EDGE_MOVER_PX:
+        why.append("edge")
+    return (not why), why
 
 
 RECURRENCE_Z = 4.0
@@ -556,8 +675,15 @@ def recurrence(track: Track, zmaps: dict[int, np.ndarray], mjds: list[float]) ->
 
 
 def z_floor(n: int) -> float:
-    """Required mean S/N: a 3-detection track needs 5.5, longer tracks may be fainter."""
-    return 5.5 if n <= 3 else 5.0
+    """Required mean S/N for an unknown mover.
+
+    With ~500-800 single detections per pass, chance alignments of three faint (z~6) residuals
+    into a straight line are common; real faint movers show up in all four exposures of a visit.
+    So three-point tracks must be clearly detected, four-point tracks can be fainter.
+    """
+    if n <= 3:
+        return 8.0
+    return 5.5 if n == 4 else 5.0
 
 
 def classify(
@@ -576,16 +702,20 @@ def classify(
 
     if mode == "asteroids":
         times = {round(d.mjd * 86400.0 / 10.0) for d in track.detections}  # distinct epochs (10 s bins)
+        quality_ok, reasons = mover_quality_ok(track)
+        if reasons:
+            track.extra["rejected_because"] = reasons
         strong = (
             n >= MIN_MOVER_DETECTIONS
             and len(times) >= 2
             and track.rms_px <= MAX_MOVER_RMS_PX
             and mean_z >= z_floor(n)
+            and quality_ok
         )
         # Spread over > 0.1 day but moved < 2 px: nothing in the solar system is that slow
         # (even a 3"/h TNO moves ~5 px in 0.4 day) -> fixed-position source.
         parked = span > 0.1 and motion < 2.0
-        if on_star > 0.5:
+        if on_star >= 0.5:
             kind = "variable_or_residual"
         elif track.extra.get("recurrence", 0) >= 2 or parked:
             kind = "stationary_transient"
@@ -601,6 +731,9 @@ def classify(
         if pk == "pm":
             kind = "proper_motion"
             score = min(1.0, 0.1 * float(track.extra.get("pm_sigma", 0)) + 0.1 * n)
+        elif pk == "target":
+            kind = "target_measurement"
+            score = 0.5
         elif pk == "var":
             kind = "variable"
             score = min(1.0, 0.2 * float(track.extra.get("flux_ratio") or 1.0))

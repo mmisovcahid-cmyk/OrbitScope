@@ -164,3 +164,12 @@ def test_legacy_simulated_endpoints_are_gone(client: TestClient) -> None:
     for path in ("/api/v1/sky/regions", "/api/v1/observations", "/api/v1/detection/candidates"):
         assert client.get(path).status_code == 404
     assert "simulated" in client.get("/").json()["data"]
+
+
+def test_validation_errors_are_localized(client: TestClient) -> None:
+    az = client.get("/api/v1/spherex/blink", params={"ra": 400, "dec": 0, "locale": "az"})
+    assert az.status_code == 422 and "Yanlış parametr 'ra'" in az.json()["detail"] and az.json()["errors"]
+    en = client.get("/api/v1/catalog/ephemeris", params={"target": "Ceres", "days": 9999})
+    assert en.status_code == 422 and en.json()["detail"] == "Invalid parameter 'days': must be at most 366."
+    job = client.post("/api/v1/jobs", json={"kind": "blink", "params": {"ra": 1, "dec": 1, "fov": 9}, "locale": "az"})
+    assert job.status_code == 422 and "fov" in job.json()["detail"] and "ən çox 0.5" in job.json()["detail"]

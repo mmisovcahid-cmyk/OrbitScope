@@ -17,6 +17,8 @@ from typing import Any, Literal, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, ValidationError
 
+from app.core.validation_i18n import localize_errors
+
 from app.api.routes import spherex as sx
 from app.services.detection_service import run_detection
 from app.services.jobs import job_manager
@@ -41,6 +43,8 @@ class BlinkParams(TargetParams):
     per_epoch: int = Field(4, ge=1, le=12)
     max_frames: int = Field(16, ge=2, le=48)
     pass_index: Optional[int] = Field(None, ge=0, le=50)
+    wl_min: Optional[float] = Field(None, ge=0.7, le=5.1)
+    wl_max: Optional[float] = Field(None, ge=0.7, le=5.1)
 
 
 class DetectParams(TargetParams):
@@ -87,14 +91,14 @@ async def create_job(req: JobRequest) -> dict[str, Any]:
     try:
         p = model(**req.params)
     except ValidationError as exc:
-        raise HTTPException(status_code=422, detail=exc.errors(include_url=False, include_context=False))
+        raise HTTPException(status_code=422, detail=localize_errors(exc.errors(include_url=False), req.locale or "en"))
     locale = req.locale or "en"
     key = f"{req.kind}:{locale}:{json.dumps(p.model_dump(), sort_keys=True)}"
 
     async def factory() -> Any:
         if isinstance(p, BlinkParams):
             data = await sx._build(p.target, p.ra, p.dec, p.pmra, p.pmdec, p.ref_epoch, p.fov, p.detector, p.mode,
-                                   p.per_epoch, p.max_frames, locale, p.pass_index)
+                                   p.per_epoch, p.max_frames, locale, p.pass_index, p.wl_min, p.wl_max)
             return data
         tgt = await sx._target_from_query(p.target, p.ra, p.dec, p.pmra, p.pmdec, p.ref_epoch, locale)
         dets = sx._parse_detectors(p.detector, locale)

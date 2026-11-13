@@ -10,6 +10,8 @@ services:
       DEBUG: "false"
       TRUST_PROXY_HEADERS: "true"     # client IP for the rate limit comes from nginx
       RATE_LIMIT_PER_MINUTE: "60"
+      REVIEW_TOKEN: "${REVIEW_TOKEN:-}"     # set it (e.g. in a .env next to this file) so only the team can review
+      PREWARM_ON_STARTUP: "true"            # cache the five challenge targets in the background at start
     volumes:
       - orbitscope-data:/data   # SPHEREx cutout cache + candidate database
     expose:

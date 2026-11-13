@@ -34,6 +34,14 @@ class Settings(BaseSettings):
         ge=0,
         description="Expensive requests (blink, photometry, detection, catalog) allowed per client per minute; 0 disables",
     )
+    PREWARM_ON_STARTUP: bool = Field(
+        default=False,
+        description="At startup, download the challenge targets' data in the background (see app/services/prewarm.py)",
+    )
+    REVIEW_TOKEN: str = Field(
+        default="",
+        description="If set, reviewing candidates (PATCH) requires header X-Review-Token with this value",
+    )
     TRUST_PROXY_HEADERS: bool = Field(
         default=False,
         description="Take the client IP from X-Real-IP (enable only behind the bundled nginx proxy)",

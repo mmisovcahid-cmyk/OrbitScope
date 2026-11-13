@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import hmac
 import io
 import time
 from typing import Any, Optional
@@ -18,10 +19,11 @@ from typing import Any, Optional
 import httpx
 
 import numpy as np
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Header, HTTPException, Query
 from fastapi.responses import Response
 from PIL import Image, ImageDraw
 
+from app.core.config import settings
 from app.core.logging_config import get_logger
 from pydantic import BaseModel, Field
 
@@ -40,11 +42,13 @@ MESSAGES: dict[str, dict[str, str]] = {
         "not_resolved": "Could not resolve '{q}'. Enter an object name or coordinates (e.g. 08h55m10.8s -07d14m42s).",
         "no_coverage": "SPHEREx has not observed this position in the public releases yet.",
         "no_detector_coverage": "No SPHEREx frames for the selected detector at this position. Try another detector.",
+        "no_band_coverage": "No SPHEREx exposure sees this position inside the selected wavelength band yet. Choose a wider band.",
         "no_data": "SPHEREx frames were found, but none had valid pixels at this position.",
         "upstream": "The IRSA archive did not respond correctly. Please try again in a moment.",
         "bad_detector": "Detector must be 1-6 or 'all'.",
         "catalog_down": "The reference catalog service is not responding. Try again later.",
         "candidate_not_found": "Candidate not found.",
+        "review_forbidden": "Reviewing candidates on this server needs the team's review token.",
         "bad_pass": "That survey pass does not exist for this position.",
     },
     "az": {
@@ -52,11 +56,13 @@ MESSAGES: dict[str, dict[str, str]] = {
         "not_resolved": "'{q}' tapılmadı. Obyekt adı və ya koordinat daxil edin (məs. 08h55m10.8s -07d14m42s).",
         "no_coverage": "SPHEREx bu mövqeni ictimai buraxılışlarda hələ müşahidə etməyib.",
         "no_detector_coverage": "Seçilmiş detektor üçün bu mövqedə SPHEREx kadrı yoxdur. Başqa detektor seçin.",
+        "no_band_coverage": "Bu mövqeni seçilmiş dalğa uzunluğu zolağında görən SPHEREx ekspozisiyası hələ yoxdur. Daha geniş zolaq seçin.",
         "no_data": "SPHEREx kadrları tapıldı, lakin bu mövqedə etibarlı piksel yoxdur.",
         "upstream": "IRSA arxivi düzgün cavab vermədi. Bir az sonra yenidən cəhd edin.",
         "bad_detector": "Detektor 1-6 və ya 'all' olmalıdır.",
         "catalog_down": "İstinad kataloq servisi cavab vermir. Bir az sonra yenidən cəhd edin.",
         "candidate_not_found": "Namizəd tapılmadı.",
+        "review_forbidden": "Bu serverdə namizədləri qiymətləndirmək üçün komandanın review tokeni lazımdır.",
         "bad_pass": "Bu mövqe üçün belə müşahidə keçidi yoxdur.",
     },
 }
@@ -96,7 +102,7 @@ async def _target_from_query(
 
 
 def _raise_archive(exc: SpherexError, locale: str) -> None:
-    status = 404 if exc.code in ("no_coverage", "no_detector_coverage", "no_data") else 400 if exc.code == "bad_pass" else 502
+    status = 404 if exc.code in ("no_coverage", "no_detector_coverage", "no_band_coverage", "no_data") else 400 if exc.code == "bad_pass" else 502
     raise HTTPException(status_code=status, detail=_msg(locale, exc.code if exc.code in MESSAGES["en"] else "upstream"))
 
 
@@ -171,7 +177,8 @@ async def coverage(
 
 
 async def _build(
-    target, ra, dec, pmra, pmdec, ref_epoch, fov, detector, mode, per_epoch, max_frames, locale, pass_index=None
+    target, ra, dec, pmra, pmdec, ref_epoch, fov, detector, mode, per_epoch, max_frames, locale, pass_index=None,
+    wl_min=None, wl_max=None,
 ) -> dict[str, Any]:
     tgt = await _target_from_query(target, ra, dec, pmra, pmdec, ref_epoch, locale)
     dets = _parse_detectors(detector, locale)
@@ -180,6 +187,7 @@ async def _build(
             ra=tgt["ra"], dec=tgt["dec"], fov_deg=fov, detectors=dets, mode=mode,
             per_epoch=per_epoch, max_frames=max_frames, pass_index=pass_index,
             pmra=tgt.get("pmra"), pmdec=tgt.get("pmdec"), ref_epoch=tgt.get("ref_epoch") or 2000.0,
+            wl_min=wl_min, wl_max=wl_max,
         )
     except SpherexError as exc:
         _raise_archive(exc, locale)
@@ -201,9 +209,12 @@ async def blink(
     pass_index: Optional[int] = Query(None, ge=0, le=50),
     per_epoch: int = Query(4, ge=1, le=12),
     max_frames: int = Query(16, ge=2, le=48),
+    wl_min: Optional[float] = Query(None, ge=0.7, le=5.1, description="Band lower edge (um), applied per exposure"),
+    wl_max: Optional[float] = Query(None, ge=0.7, le=5.1, description="Band upper edge (um)"),
     locale: str = "en",
 ) -> dict[str, Any]:
-    data = await _build(target, ra, dec, pmra, pmdec, ref_epoch, fov, detector, mode, per_epoch, max_frames, locale, pass_index)
+    data = await _build(target, ra, dec, pmra, pmdec, ref_epoch, fov, detector, mode, per_epoch, max_frames, locale, pass_index,
+                        wl_min, wl_max)
     return {"success": True, "message": _msg(locale, "ok"), "data": data}
 
 
@@ -322,7 +333,13 @@ class ReviewBody(BaseModel):
 
 
 @router.patch("/candidates/{cand_id}", summary="Review a candidate (real / artifact / unsure)")
-async def review_candidate(cand_id: str, body: ReviewBody, locale: str = "en") -> dict[str, Any]:
+async def review_candidate(
+    cand_id: str, body: ReviewBody, locale: str = "en",
+    x_review_token: Optional[str] = Header(None),
+) -> dict[str, Any]:
+    # On a public server anyone could otherwise mark candidates real/artifact.
+    if settings.REVIEW_TOKEN and not hmac.compare_digest(x_review_token or "", settings.REVIEW_TOKEN):
+        raise HTTPException(status_code=403, detail=_msg(locale, "review_forbidden"))
     updated = get_store().review(cand_id, body.status, body.note)
     if not updated:
         raise HTTPException(status_code=404, detail=_msg(locale, "candidate_not_found"))
@@ -379,10 +396,13 @@ async def blink_gif(
     pass_index: Optional[int] = Query(None, ge=0, le=50),
     per_epoch: int = Query(4, ge=1, le=12),
     max_frames: int = Query(16, ge=2, le=48),
+    wl_min: Optional[float] = Query(None, ge=0.7, le=5.1, description="Band lower edge (um), applied per exposure"),
+    wl_max: Optional[float] = Query(None, ge=0.7, le=5.1, description="Band upper edge (um)"),
     delay_ms: int = Query(600, ge=50, le=5000),
     locale: str = "en",
 ) -> Response:
-    data = await _build(target, ra, dec, pmra, pmdec, ref_epoch, fov, detector, mode, per_epoch, max_frames, locale, pass_index)
+    data = await _build(target, ra, dec, pmra, pmdec, ref_epoch, fov, detector, mode, per_epoch, max_frames, locale, pass_index,
+                        wl_min, wl_max)
     frames = _render_png_frames(data)
     buf = io.BytesIO()
     frames[0].save(buf, format="GIF", save_all=True, append_images=frames[1:], duration=delay_ms, loop=0)

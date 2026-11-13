@@ -523,6 +523,22 @@
       "saturated": "saturated",
       "flagged": "flagged pixels in aperture",
       "lvfNote": "colour = detector"
+    },
+    "aladin": {
+      "title": "Sky context (Aladin Lite)",
+      "intro": "The same field in all-sky surveys (served by NASA/IPAC IRSA): optical (DSS2), near-infrared (2MASS) and 4.6 µm (AllWISE W2, where cold brown dwarfs are brightest). Blue box: the SPHEREx cutout; pink marker: the target position at the SPHEREx epoch.",
+      "loading": "Loading Aladin Lite from CDS…",
+      "error": "Aladin Lite (CDS) could not be loaded right now. Use the Aladin link above, or try again later.",
+      "credit": "Aladin Lite © CDS, Université de Strasbourg / CNRS. HiPS surveys DSS2, 2MASS, AllWISE via NASA/IPAC IRSA."
+    },
+    "band": {
+      "label": "Wavelength band",
+      "none": "Whole detector range",
+      "h2o": "H₂O absorption",
+      "k": "K band",
+      "ch4": "CH₄ (methane)",
+      "co": "CO / Y-dwarf peak",
+      "help": "SPHEREx's filters change wavelength across each detector, so every exposure sees the target at a different wavelength. A band keeps only exposures whose wavelength at the target lies inside it - e.g. CH₄ makes cold brown dwarfs fade, CO/4.6 µm makes Y dwarfs like WISE 0855 brightest."
     }
   },
   "detect": {
@@ -598,7 +614,8 @@
       "variable": "Variable",
       "variable_or_residual": "Star residual",
       "low_confidence": "Low confidence",
-      "stationary_transient": "Stationary transient"
+      "stationary_transient": "Stationary transient",
+      "target_measurement": "Target measured"
     },
     "explain": {
       "unknown_mover": "A source seen in several exposures of one visit that is absent from the static sky and does not match any known asteroid or comet. Check it in Blink before marking it real.",
@@ -609,12 +626,33 @@
       "variable": "Brightness changed at a fixed position: a variable star or an artifact.",
       "variable_or_residual": "Residual on top of a bright star; usually caused by SPHEREx's wavelength-dependent brightness, not motion.",
       "low_confidence": "Detections do not fit a straight-line motion well.",
-      "stationary_transient": "Appears in some exposures only, but at a FIXED position (it recurs in other visits or did not move between visits). Solar-system objects always move, so this is a variable source, detector persistence or another artifact."
+      "stationary_transient": "Appears in some exposures only, but at a FIXED position (it recurs in other visits or did not move between visits). Solar-system objects always move, so this is a variable source, detector persistence or another artifact.",
+      "target_measurement": "The requested target itself, measured in every survey pass even when it is too faint for the blind search. Its motion is compared with the catalog proper motion below."
     },
     "recurrence": "Same-spot recurrences",
     "measuredPm": "Measured proper motion",
     "significance": "Shift significance",
-    "fluxRatio": "Brightness change (max/min)"
+    "fluxRatio": "Brightness change (max/min)",
+    "targetCheck": {
+      "title": "Target motion check",
+      "measured": "Measured",
+      "expected": "Catalog",
+      "significance": "Significance",
+      "baseline": "Baseline",
+      "confirmed": "Motion confirmed: detected at ≥3σ and agrees with the catalog.",
+      "agreesWeak": "Agrees with the catalog, but below 3σ — more survey passes will sharpen it.",
+      "disagrees": "Measured motion does not agree with the catalog value.",
+      "noCatalog": "No catalog proper motion for comparison."
+    },
+    "rejected": "Not counted as a mover because",
+    "reject": {
+      "no_steady_motion": "points scatter around one spot instead of moving steadily",
+      "scatter": "positions scatter more than their measurement error",
+      "flux_jump": "brightness jumps by more than 3× between exposures",
+      "missing_in_visit": "a bright source missing from most exposures of its visit",
+      "edge": "too close to the image edge"
+    },
+    "reviewTokenPrompt": "This server needs the team's review token to save reviews. Enter it:"
   },
   "jobs": {
     "stage": {
@@ -675,8 +713,8 @@
   "planetxLive": {
     "subtitle": "The Planet Nine hypothesis, tested on live orbits from NASA/JPL. The clustering statistics on this page are computed by OrbitScope; the evidence cards and predicted parameters are literature values.",
     "testTitle": "Is the orbital clustering real? (live JPL orbits)",
-    "testIntro": "Distant detached TNOs (a ≥ 150 AU, q ≥ 30 AU) are fetched from the JPL Small-Body Database right now. The Rayleigh test asks whether their orbital angles point in a preferred direction more than chance would allow.",
-    "loading": "Fetching ~20 orbits from JPL…",
+    "testIntro": "Every distant detached TNO in the JPL Small-Body Database (a ≥ 150 AU, q ≥ 30 AU, well-determined orbit) is fetched right now. The Rayleigh test asks whether their orbital angles point in a preferred direction more than chance would allow.",
+    "loading": "Fetching orbits from JPL…",
     "angle": {
       "varpi": "Longitude of perihelion",
       "node": "Longitude of ascending node",
@@ -693,7 +731,7 @@
     "aqPlot": "Semi-major axis vs perihelion distance",
     "caveatTitle": "Caveat:",
     "caveat": "Surveys only find distant TNOs where and when they looked, so observational selection can create apparent clustering. Analyses that model survey biases (Shankman et al. 2017; Napier et al. 2021) find the clustering consistent with no Planet Nine. This test does not correct for selection bias.",
-    "table": "Orbit table ({{n}} objects)",
+    "table": "Orbit table ({{n}} objects; grey = poorly determined orbit, not used)",
     "missing": "{{n}} object(s) could not be fetched right now",
     "spherexTitle": "Could SPHEREx or OrbitScope find Planet Nine?",
     "spherexText": "Predicted Planet Nine is very faint (likely V ≈ 20–24) and, at 300–500 AU, moves only ~0.3″ per hour, mostly from Earth's own motion. OrbitScope's asteroid search links detections inside a ~7-minute SPHEREx visit, so such a slow mover looks static and would not be detected; a dedicated multi-day search would be needed. This is an honest limitation of the current tool.",
@@ -710,7 +748,15 @@
       "q": "Perihelion distance",
       "i": "Inclination",
       "period": "Orbital period"
-    }
+    },
+    "compareTitle": "Does the result depend on which objects you pick?",
+    "sample": "Sample",
+    "sampleComplete": "Complete: all JPL objects, orbit quality ≤ {{cc}}",
+    "sampleLiterature": "Literature: the objects discussed in Planet Nine papers",
+    "compareNote": "Both samples are fetched live from JPL. The hand-picked literature sample clusters much more strongly than the complete, objectively selected sample — a direct look at how object selection affects the Planet Nine evidence.",
+    "periLegend": "Orange: objects of the literature sample.",
+    "ccHelp": "JPL orbit condition code: 0 = best determined, 9 = most uncertain. Objects above 5 (grey) are not used.",
+    "litCol": "Lit."
   },
   "analysisLive": {
     "measurement": "Measurement",

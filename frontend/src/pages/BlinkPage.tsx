@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Search, Sparkles, Link2, Code2, Download, ExternalLink, AlertTriangle, Satellite, Clock, Layers } from 'lucide-react';
 import BlinkViewer from '../components/blink/BlinkViewer';
 import PhotometryPanel from '../components/blink/PhotometryPanel';
+import AladinPanel from '../components/blink/AladinPanel';
 import JobProgressBar from '../components/common/JobProgressBar';
 import { JobProgress, isAbort, runJob } from '../lib/jobs';
 import { spherexService } from '../services';
@@ -11,7 +12,7 @@ import api from '../services/api';
 
 const API_BASE = api.defaults.baseURL ?? '';
 import {
-  BlinkQuery, BlinkResult, CatalogOverlay, DEFAULT_QUERY, DETECTOR_INFO, OVERLAY_COLORS, apiParams, errorText,
+  BAND_PRESETS, BlinkQuery, BlinkResult, CatalogOverlay, DEFAULT_QUERY, DETECTOR_INFO, OVERLAY_COLORS, apiParams, errorText,
   formatDec, formatRA, queryFromParams, queryToParams,
 } from '../lib/spherex';
 
@@ -180,6 +181,16 @@ export default function BlinkPage() {
             </select>
           </label>
           <label className="text-[11px] text-gray-400 flex flex-col gap-1">
+            {t('blink.band.label')}
+            <select className={input} value={form.band ?? ''}
+              onChange={(e) => setForm({ ...form, band: e.target.value || undefined, detector: e.target.value ? 'all' : form.detector })}>
+              <option value="">{t('blink.band.none')}</option>
+              {BAND_PRESETS.map((b) => (
+                <option key={b.id} value={b.id}>{t(`blink.band.${b.key}`)} · {b.id.replace('-', '–')} µm</option>
+              ))}
+            </select>
+          </label>
+          <label className="text-[11px] text-gray-400 flex flex-col gap-1">
             {t('blink.search.mode')}
             <select className={input} value={form.mode} onChange={(e) => setForm({ ...form, mode: e.target.value as BlinkQuery['mode'] })}>
               <option value="epoch">{t('blink.search.modeEpoch')}</option>
@@ -215,6 +226,8 @@ export default function BlinkPage() {
             </label>
           )}
         </div>
+
+        {form.band && <p className="text-[11px] text-sky-300/80">{t('blink.band.help')}</p>}
 
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-[11px] text-gray-500">{t('blink.search.tryTargets')}</span>
@@ -400,6 +413,11 @@ export default function BlinkPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {!loading && result && (
+        <AladinPanel ra={result.target.center_ra} dec={result.target.center_dec} fov={result.grid.fov_deg}
+          label={result.target.name || t('blink.panels.customPosition')} />
       )}
 
       {!loading && result && query && (

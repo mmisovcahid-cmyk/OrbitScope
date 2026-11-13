@@ -11,7 +11,7 @@ import {
   Users,
   Globe
 } from 'lucide-react';
-import { OrbitScopeLogo, NasaLogo, SpherexSatelliteIllustration } from './Icons';
+import { OrbitScopeLogo, SpherexSatelliteIllustration } from './Icons';
 
 export default function Layout() {
   const { t, i18n } = useTranslation();
@@ -20,14 +20,6 @@ export default function Layout() {
   const toggleLanguage = () => {
     i18n.changeLanguage(i18n.language === 'en' ? 'az' : 'en');
   };
-
-  const navTabs = [
-    { to: '/', label: t('nav.blink') },
-    { to: '/dashboard', label: t('nav.dashboard') },
-    { to: '/detection', label: t('nav.detection') },
-    { to: '/planetx', label: t('nav.planetx') },
-    { to: '/about', label: t('nav.about') },
-  ];
 
   const sidebarLinks = [
     { to: '/', icon: Sparkles, label: t('nav.blink') },
@@ -45,7 +37,7 @@ export default function Layout() {
       {/* TOP HEADER */}
       {/* ============================================================ */}
       <header className="h-16 px-6 border-b border-white/[0.08] bg-[#070b18]/90 backdrop-blur-md flex items-center justify-between shrink-0 z-50">
-        {/* Left: OrbitScope Branding & NASA meatball */}
+        {/* Left: OrbitScope branding (no NASA insignia: its use needs NASA's permission) */}
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3">
             <OrbitScopeLogo className="w-9 h-9" />
@@ -58,37 +50,7 @@ export default function Layout() {
               </div>
             </div>
           </div>
-
-          <div className="h-8 w-[1px] bg-white/10 mx-1" />
-
-          {/* NASA Meatball Badge */}
-          <div className="flex items-center gap-2">
-            <NasaLogo className="w-9 h-9" />
-          </div>
         </div>
-
-        {/* Center: Top Navigation Tabs */}
-        <nav className="hidden lg:flex items-center gap-6 xl:gap-8 whitespace-nowrap">
-          {navTabs.map((tab) => {
-            const isActive = location.pathname === tab.to;
-            return (
-              <NavLink
-                key={tab.to}
-                to={tab.to}
-                className={`relative py-5 text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'text-sky-400'
-                    : 'text-gray-400 hover:text-gray-200'
-                }`}
-              >
-                {tab.label}
-                {isActive && (
-                  <span className="absolute bottom-0 inset-x-0 h-[2.5px] bg-sky-400 rounded-t-full shadow-[0_0_12px_#38bdf8]" />
-                )}
-              </NavLink>
-            );
-          })}
-        </nav>
 
         {/* Right: Controls & Space Apps pill */}
         <div className="flex items-center gap-2 md:gap-4">

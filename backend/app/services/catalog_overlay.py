@@ -11,8 +11,12 @@ browser can move each marker to where the star was on the date of each SPHEREx f
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
+import json
 import math
+import time
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -31,6 +35,15 @@ CATALOGS: dict[str, dict[str, Any]] = {
 }
 
 _cache: TTLCache = TTLCache(maxsize=256, ttl=6 * 3600)
+# Gaia DR3 and CatWISE2020 are fixed releases: query results are also kept on disk (30 days), so a
+# prepared demo never waits for the ESA/IRSA TAP services (Gaia can take 20-40 s).
+DISK_TTL_S = 30 * 24 * 3600
+
+
+def _disk_path(key: str) -> Path:
+    d = Path(settings.SPHEREX_CACHE_DIR) / "catalogs"
+    d.mkdir(parents=True, exist_ok=True)
+    return d / f"{hashlib.md5(key.encode()).hexdigest()[:20]}.json"
 
 
 class CatalogError(Exception):
@@ -66,6 +79,14 @@ async def fetch_catalog(catalog: str, ra: float, dec: float, radius_deg: float, 
     key = f"{catalog}:{ra:.4f}:{dec:.4f}:{radius_deg:.4f}:{limit}"
     if key in _cache:
         return _cache[key]
+    disk = _disk_path(key)
+    try:
+        if disk.exists() and time.time() - disk.stat().st_mtime < DISK_TTL_S:
+            result = json.loads(disk.read_text(encoding="utf-8"))
+            _cache[key] = result
+            return result
+    except Exception:  # corrupt cache file: fetch again
+        pass
 
     circle = f"CIRCLE('ICRS', {ra:.6f}, {dec:.6f}, {radius_deg:.5f})"
     sources: list[dict[str, Any]] = []
@@ -117,4 +138,8 @@ async def fetch_catalog(catalog: str, ra: float, dec: float, radius_deg: float, 
         "count": len(sources), "truncated": len(sources) >= limit, "sources": sources,
     }
     _cache[key] = result
+    try:
+        disk.write_text(json.dumps(result), encoding="utf-8")
+    except Exception as exc:  # cache write failures are not fatal
+        logger.warning(f"Could not cache {catalog} result on disk: {exc}")
     return result

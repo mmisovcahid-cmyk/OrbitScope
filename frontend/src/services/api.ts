@@ -12,7 +12,8 @@ const api = axios.create({
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    console.error('[API Error]', err?.response?.status, err?.message);
+    // A request cancelled on purpose (user left the page, newer search) is not an error.
+    if (!axios.isCancel(err)) console.error('[API Error]', err?.response?.status, err?.message);
     return Promise.reject(err);
   }
 );

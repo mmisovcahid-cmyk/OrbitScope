@@ -3,6 +3,28 @@ import i18n from '../i18n';
 
 const locale = () => i18n.language || 'en';
 
+const TOKEN_KEY = 'orbitscope.reviewToken';
+function readToken(): string {
+  try { return localStorage.getItem(TOKEN_KEY) ?? ''; } catch { return ''; }
+}
+
+/** PATCH a review. A public server may require the team's review token (HTTP 403): ask once, remember it. */
+async function reviewWithToken(id: string, status: string, note?: string) {
+  const send = (token: string) => api.patch(`/api/v1/spherex/candidates/${encodeURIComponent(id)}`, { status, note }, {
+    params: { locale: locale() }, headers: token ? { 'X-Review-Token': token } : undefined,
+  });
+  try {
+    return await send(readToken());
+  } catch (err) {
+    const e = err as { response?: { status?: number } };
+    if (e.response?.status !== 403) throw err;
+    const token = window.prompt(i18n.t('detect.reviewTokenPrompt')) ?? '';
+    if (!token) throw err;
+    try { localStorage.setItem(TOKEN_KEY, token); } catch { /* storage unavailable */ }
+    return send(token);
+  }
+}
+
 export const catalogService = {
   search: (query: string) =>
     api.get('/api/v1/catalog/search', { params: { query, locale: locale() } }),
@@ -42,8 +64,7 @@ export const spherexService = {
     api.get('/api/v1/spherex/candidates', { params: { status: status || undefined, limit: 200 } }),
   candidate: (id: string) => api.get(`/api/v1/spherex/candidates/${encodeURIComponent(id)}`, { params: { locale: locale() } }),
   overview: () => api.get('/api/v1/spherex/overview', { timeout: 30000 }),
-  review: (id: string, status: string, note?: string) =>
-    api.patch(`/api/v1/spherex/candidates/${encodeURIComponent(id)}`, { status, note }, { params: { locale: locale() } }),
+  review: (id: string, status: string, note?: string) => reviewWithToken(id, status, note),
   exportUrl: (id: string) => `${api.defaults.baseURL}/api/v1/spherex/candidates/${encodeURIComponent(id)}/export`,
   gifUrl: (params: Record<string, string | number>) => {
     const qs = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString();

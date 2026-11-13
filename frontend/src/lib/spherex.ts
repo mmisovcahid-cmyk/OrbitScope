@@ -65,6 +65,23 @@ export interface BlinkQuery {
   per_epoch: number;
   max_frames: number;
   pass_index?: number;
+  /** Wavelength band "lo-hi" in um, applied per exposure (SPHEREx LVF), e.g. "3.2-3.45". */
+  band?: string;
+}
+
+/** Spectral features worth isolating with SPHEREx's 102 channels. */
+export const BAND_PRESETS: { id: string; key: string }[] = [
+  { id: '1.3-1.5', key: 'h2o' },
+  { id: '2.0-2.4', key: 'k' },
+  { id: '3.2-3.45', key: 'ch4' },
+  { id: '4.4-5.0', key: 'co' },
+];
+
+export function parseBand(b?: string): [number, number] | null {
+  const m = /^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/.exec(b ?? '');
+  if (!m) return null;
+  const lo = Number(m[1]); const hi = Number(m[2]);
+  return lo >= 0.7 && hi <= 5.1 && lo < hi ? [lo, hi] : null;
 }
 
 export const DEFAULT_QUERY: BlinkQuery = { fov: 0.1, detector: '3', mode: 'epoch', per_epoch: 4, max_frames: 16 };
@@ -218,12 +235,20 @@ export interface CandidateDetection {
   z: number; flux: number; detectors: number[]; on_star: boolean;
 }
 
+export interface TargetCheck {
+  significance: number; err_mas_per_year: number | null; baseline_years: number; detected: boolean;
+  expected_pm_mas_per_year?: number; measured_pm_mas_per_year?: number; expected_pa_deg?: number; measured_pa_deg?: number;
+  difference_mas_per_year?: number; agrees?: boolean; confirmed?: boolean;
+}
+
 export interface Candidate {
   id: string; search: SearchKind; class: string; score: number; ra: number; dec: number; x: number; y: number;
   t0_mjd: number; t0_date: string; n_detections: number; n_detectors: number; visits: number; rms_px: number;
   rate_px_per_day: [number, number]; rate_arcsec_per_hour: number; rate_arcsec_per_year: number;
   position_angle_deg: number | null; mean_z: number; recurrence?: number | null; detections: CandidateDetection[];
-  metrics?: Record<string, number | string | null>; measured_pm_mas_per_year?: [number, number];
+  metrics?: Record<string, number | string | boolean | string[] | null>; measured_pm_mas_per_year?: [number, number];
+  is_target?: boolean; target_name?: string | null; expected_pm_mas_per_year?: [number, number];
+  target_check?: TargetCheck;
   match: null | {
     type: 'known_sso' | 'star'; name: string; kind?: string; vmag?: number | null; catalog?: string; mag?: number | null;
     pm_mas_per_year?: number; sep_arcsec: number; predicted_rate_arcsec_per_hour?: number;
@@ -260,6 +285,7 @@ export interface AnnotationPath { points: [number, number][]; color: string; das
 export const CLASS_COLORS: Record<string, string> = {
   unknown_mover: '#f472b6',
   pm_candidate: '#f472b6',
+  target_measurement: '#38bdf8',
   known_sso: '#22d3ee',
   known_pm_star: '#facc15',
   moving_object: '#22d3ee',
@@ -313,6 +339,7 @@ export function queryFromParams(p: URLSearchParams): BlinkQuery | null {
     pass_index: p.get('pass') !== null && Number.isInteger(Number(p.get('pass'))) ? Math.max(0, Number(p.get('pass'))) : undefined,
     per_epoch: Math.round(num('per', DEFAULT_QUERY.per_epoch, 1, 12)),
     max_frames: Math.round(num('max', DEFAULT_QUERY.max_frames, 2, 48)),
+    band: parseBand(p.get('band') ?? undefined) ? (p.get('band') as string) : undefined,
   };
 }
 
@@ -326,6 +353,7 @@ export function queryToParams(q: BlinkQuery): Record<string, string> {
   if (q.mode === 'epoch') out.per = String(q.per_epoch);
   else out.max = String(q.max_frames);
   if (q.mode === 'pass' && q.pass_index !== undefined) out.pass = String(q.pass_index);
+  if (parseBand(q.band)) out.band = q.band as string;
   return out;
 }
 
@@ -356,5 +384,7 @@ export function apiParams(q: BlinkQuery): Record<string, string | number> {
   if (q.mode === 'pass' && q.pass_index !== undefined) out.pass_index = q.pass_index;
   if (q.ra !== undefined && q.dec !== undefined) { out.ra = q.ra; out.dec = q.dec; }
   if (q.target) out.target = q.target;
+  const band = parseBand(q.band);
+  if (band) { out.wl_min = band[0]; out.wl_max = band[1]; }
   return out;
 }

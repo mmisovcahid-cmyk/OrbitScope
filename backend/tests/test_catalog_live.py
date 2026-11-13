@@ -152,15 +152,25 @@ def test_rayleigh_and_etno_clustering(monkeypatch) -> None:
     spread = etno.rayleigh([0, 60, 120, 180, 240, 300])
     assert spread["p"] > 0.5
 
-    async def fake_lookup(des):
-        base = jc.parse_sbdb(SBDB_CERES, des)
-        i = etno.ETNO_DESIGNATIONS.index(des)
-        base["designation"] = des
-        base["elements"] = {**base["elements"], "a_au": 300.0 + i, "q_au": 40.0, "om_deg": 100.0 + 2 * i, "w_deg": 300.0 - i}
-        return {"match": base}
+    rows = []
+    for i, des in enumerate(etno.ETNO_DESIGNATIONS):  # literature objects: tightly clustered
+        rows.append({"pdes": des, "full_name": f"({des})", "a": str(300 + i), "e": "0.8", "i": "10", "q": "40",
+                     "om": str(100 + 2 * i), "w": str(300 - i), "ad": "600", "H": "5", "condition_code": "2"})
+    for i in range(40):  # other well-determined objects: random orientations
+        rows.append({"pdes": f"2099 X{i}", "full_name": f"(2099 X{i})", "a": "200", "e": "0.8", "i": "10", "q": "35",
+                     "om": str((i * 97) % 360), "w": str((i * 53) % 360), "ad": "400", "H": "6", "condition_code": "4"})
+    rows.append({"pdes": "2099 BAD", "full_name": "(2099 BAD)", "a": "500", "e": "0.9", "i": "5", "q": "40",
+                 "om": "60", "w": "0", "ad": "900", "H": "8", "condition_code": "9"})  # poor orbit: excluded
 
-    monkeypatch.setattr(jc, "sbdb_lookup", fake_lookup)
+    async def fake_query(min_a, min_q):
+        assert (min_a, min_q) == (150.0, 30.0)
+        return rows
+
+    monkeypatch.setattr(jc, "sbdb_query_etnos", fake_query)
     res = asyncio.run(etno.etno_analysis())
-    assert res["varpi"]["n"] == len(etno.ETNO_DESIGNATIONS)
-    assert res["varpi"]["p"] < 0.001 and res["missing"] == 0
-    assert all(o["in_sample"] for o in res["objects"])
+    assert res["varpi"]["n"] == len(etno.ETNO_DESIGNATIONS) + 40  # complete sample, poor orbit excluded
+    lit = res["literature"]
+    assert lit["n"] == len(etno.ETNO_DESIGNATIONS) and lit["missing"] == 0 and lit["varpi"]["p"] < 0.001
+    assert res["varpi"]["p"] > lit["varpi"]["p"]  # random extra objects dilute the clustering
+    bad = next(o for o in res["objects"] if o["designation"] == "2099 BAD")
+    assert bad["in_sample"] is False

@@ -20,13 +20,13 @@ Every page uses **real public data**: NASA/IPAC IRSA, NASA/JPL and ESA. No API k
 
 | Page | What it does |
 |---|---|
-| **Blink** (`/`) | SPHEREx image time series of any position.<br>Views: blink, difference, motion colour and stack.<br>Choice of detector/wavelength (D1–D6, 0.75–5 µm) and field of view.<br>Gaia DR3 / CatWISE2020 overlays moved to each frame's date.<br>Quality flags, proper-motion marker, GIF export and links to the source FITS files.<br>Spectrum + light curve from up to 96 exposures. |
-| **Detection** (`/detection`) | Moving-object search on real exposures: asteroids/comets, or proper motion.<br>Checks against JPL SB Ident, Gaia and CatWISE.<br>Candidate review (real / artifact / unsure) and CSV export. |
+| **Blink** (`/`) | SPHEREx image time series of any position.<br>Views: blink, difference, motion colour and stack.<br>Choice of detector (D1–D6, 0.75–5 µm), **wavelength band** (e.g. CH₄ 3.2–3.45 µm, applied per exposure) and field of view.<br>Gaia DR3 / CatWISE2020 overlays moved to each frame's date.<br>Quality flags, proper-motion marker, GIF export and links to the source FITS files.<br>Spectrum + light curve from up to 96 exposures.<br>**Sky context** panel (CDS Aladin Lite: DSS2 / 2MASS / AllWISE) with the SPHEREx footprint. |
+| **Detection** (`/detection`) | Moving-object search on real exposures: asteroids/comets, or proper motion.<br>Checks against JPL SB Ident, Gaia and CatWISE; the requested target is always measured and its motion compared with the catalog.<br>Every rejected track says why (zig-zag, brightness jump, …).<br>Candidate review (real / artifact / unsure, optional team token) and CSV export. |
 | **Sky Explorer** (`/dashboard`) | All-sky map of every saved run and candidate, review counts, live service status. |
 | **Comparison** (`/comparison`) | Two real SPHEREx survey passes of one field side by side, with a difference image. |
 | **Analysis** (`/analysis/:id`) | One saved candidate: track, metrics and catalog matches, with links to the same field in Blink and to JPL. |
 | **Catalog** (`/catalog`) | Live JPL SBDB lookup (orbit, physical data, close approaches), Horizons ephemeris, known objects in a field (SB Ident). |
-| **Planet X** (`/planetx`) | Live Rayleigh test for orbital clustering of 20 extreme TNOs, with orbits from JPL. Published evidence and search corridors are labelled as literature. |
+| **Planet X** (`/planetx`) | Live Rayleigh test for orbital clustering of extreme TNOs, on **every** qualifying object in JPL SBDB (59) and on the 20-object literature sample, side by side. Published evidence and search corridors are labelled as literature. |
 | **Embed** (`/embed?...`) | iframe-friendly Blink for other websites. |
 
 The interface is bilingual (English / Azərbaycan dili). The URL holds the full query, so every view can be shared or embedded:
@@ -38,12 +38,14 @@ The interface is bilingual (English / Azərbaycan dili). The URL holds the full 
 
 | Test | Result |
 |---|---|
-| 626 Notburga (asteroid, V = 13.5) | 8 detections, 1.6″ from the JPL position, 58″/h |
-| ε Indi B (brown dwarf) | proper motion 4.1″/yr at PA ≈ 123°, matched to Gaia |
-| WISE 0855−0714 (coldest known brown dwarf) | 7.9″/yr at PA 280°, matched to CatWISE |
-| ε Indi B spectrum | CH₄ absorption near 3.3 µm visible |
-| Static fields | no false `unknown_mover` |
-| Planet X test (live JPL orbits) | ϖ clustered around ≈ 68°, Rayleigh p ≈ 5×10⁻⁴ |
+| 626 Notburga (asteroid, V = 13.5) | 8 detections, 1.6″ from the JPL position, 58.5″/h (Detection preset, pass 0) |
+| False movers | 0 `unknown_mover` in both survey passes of the Notburga field and in the ε Indi B field (before the quality rules: 8 + 2) |
+| ε Indi B (brown dwarf) | proper motion 4.10″/yr at PA 122° (catalog 4.68″/yr, 122°), 15σ, matched to Gaia DR3 |
+| WISE 0855−0714 (coldest known brown dwarf) | 8.2″/yr at PA 286° (catalog 8.15″/yr, 275°), 7.6σ, matched to CatWISE2020; the target check confirms it |
+| ε Indi B spectrum (95 exposures) | 3.2–3.45 µm 5× fainter than 3.6–4.1 µm (CH₄); dips at 1.4 µm (H₂O) and 4.6 µm (CO) |
+| Planet X test (live JPL orbits) | literature sample (20): ϖ ≈ 68°, p ≈ 5×10⁻⁴; complete sample (59): p ≈ 0.02 — selection matters |
+
+All numbers were re-measured on 2026-11-13 with the code in this repository; `scripts/prewarm.py` reproduces the three Detection examples.
 
 Method details: [docs/METHODOLOGY.md](docs/METHODOLOGY.md). Honest limitations: [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
 
@@ -70,14 +72,14 @@ npm run dev                 # http://localhost:5173
 
 ### Before a demo: fill the cache
 
-The first view of a new field downloads 16–60 image cutouts from IRSA, which takes 30–90 s. Run this once before presenting, and the five challenge targets open instantly:
+The first view of a new field downloads 16–96 image cutouts from IRSA (30–90 s). Run this once before presenting (about 8–10 minutes): all six detectors of the five challenge targets, their spectra and the three Detection examples are then served instantly from disk.
 
 ```bash
 cd backend
 python -m scripts.prewarm
 ```
 
-Options: `--targets barnard,wise-0855`, `--all-detectors`, `--no-photometry`.
+Options: `--targets barnard,wise-0855`, `--quick` (default detector only), `--no-photometry`, `--no-demo-runs`. In Docker this runs by itself at startup (`PREWARM_ON_STARTUP=true`).
 
 ## 🐳 Docker (public deployment)
 
@@ -89,9 +91,11 @@ docker compose up --build
 - **Data:** the SPHEREx cache and the candidate database live in the `orbitscope-data` volume.
 - **Production defaults:**
   - `DEBUG=false`.
+  - The five challenge targets are downloaded in the background right after startup (`PREWARM_ON_STARTUP`).
+  - Set `REVIEW_TOKEN` (e.g. in a `.env` file next to `docker-compose.yml`) so only the team can mark candidates real/artifact.
   - Expensive requests (blink, photometry, detection, catalog) are limited to 60 per client per minute (`RATE_LIMIT_PER_MINUTE`).
   - The client IP is taken from nginx.
-- **Cache warm-up:**
+- **Cache warm-up by hand** (already done at startup):
 
   ```bash
   docker compose exec backend python -m scripts.prewarm

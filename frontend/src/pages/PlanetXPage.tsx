@@ -10,14 +10,19 @@ import api from '../services/api';
 import { errorText } from '../lib/spherex';
 
 interface ETNO {
-  designation: string; name: string; a_au: number; e: number; i_deg: number; q_au: number; ad_au: number;
+  designation: string; name: string; a_au: number; e: number | null; i_deg: number | null; q_au: number; ad_au: number | null;
   om_deg: number; w_deg: number; varpi_deg: number; H: number | null; in_sample: boolean;
+  in_literature?: boolean; condition_code?: string | null;
 }
 interface Rayleigh { n: number; mean_deg: number; R: number; Z: number; p: number }
+interface SampleStats { n: number; varpi: Rayleigh; node: Rayleigh; argperi: Rayleigh; missing?: number }
 interface Clustering {
-  objects: ETNO[]; selection: { min_a_au: number; min_q_au: number };
+  objects: ETNO[]; selection: { min_a_au: number; min_q_au: number; max_condition_code?: number; n_total?: number };
   varpi: Rayleigh; node: Rayleigh; argperi: Rayleigh; source: string; missing?: number;
+  literature?: SampleStats;
 }
+
+const fmtP = (p: number) => (p < 0.001 ? p.toExponential(1) : p.toFixed(3));
 
 // Literature values (Brown & Batygin 2021, AJ 162:219) - not measured by OrbitScope.
 const PREDICTIONS = [
@@ -50,7 +55,7 @@ function TnoTooltip({ active, payload }: TooltipProps<number, string>) {
   return (
     <div className="rounded-lg bg-[#0b1224] border border-white/10 px-2 py-1.5 text-[11px] text-gray-200 font-mono">
       <div className="font-sans font-semibold">{o.name}</div>
-      <div>a {o.a_au.toFixed(0)} AU · q {o.q_au.toFixed(1)} AU · i {o.i_deg.toFixed(1)}°</div>
+      <div>a {o.a_au.toFixed(0)} AU · q {o.q_au.toFixed(1)} AU · i {o.i_deg?.toFixed(1) ?? '—'}°</div>
       <div>ϖ {o.varpi_deg.toFixed(1)}° · Ω {o.om_deg.toFixed(1)}° · ω {o.w_deg.toFixed(1)}°</div>
     </div>
   );
@@ -69,9 +74,11 @@ export default function PlanetXPage() {
 
   const sample = data?.objects.filter((o) => o.in_sample) ?? [];
   // Perihelion directions projected on the ecliptic: (q cos varpi, q sin varpi)
-  const peri = sample.map((o) => ({
+  const toPeri = (o: ETNO) => ({
     x: o.q_au * Math.cos((o.varpi_deg * Math.PI) / 180), y: o.q_au * Math.sin((o.varpi_deg * Math.PI) / 180), o,
-  }));
+  });
+  const peri = sample.filter((o) => !o.in_literature).map(toPeri);
+  const periLit = sample.filter((o) => o.in_literature).map(toPeri);
   const lim = Math.ceil(Math.max(50, ...sample.map((o) => o.q_au)) / 10) * 10 + 10;
   const meanDir = data?.varpi.mean_deg ?? 0;
 
@@ -106,7 +113,7 @@ export default function PlanetXPage() {
                 return (
                   <div key={k} className="rounded-lg border border-white/10 bg-white/[0.02] p-3">
                     <div className="text-[11px] text-gray-400">{t(`planetxLive.angle.${k}`)} ({sym})</div>
-                    <div className="text-lg font-semibold text-white">p = {r.p < 0.001 ? r.p.toExponential(1) : r.p.toFixed(3)}</div>
+                    <div className="text-lg font-semibold text-white">p = {fmtP(r.p)}</div>
                     <div className="text-[11px] text-gray-400 font-mono">n={r.n} · R̄={r.R} · {t('planetxLive.mean')} {r.mean_deg}°</div>
                     <div className={`text-[11px] mt-1 ${v === 'strong' ? 'text-emerald-400' : v === 'weak' ? 'text-amber-300' : 'text-gray-400'}`}>
                       {t(`planetxLive.verdict.${v}`)}
@@ -115,6 +122,31 @@ export default function PlanetXPage() {
                 );
               })}
             </div>
+            {data.literature && (
+              <div className="mb-4 rounded-lg border border-violet-500/20 bg-violet-500/5 p-3">
+                <div className="text-sm text-white font-semibold mb-2">{t('planetxLive.compareTitle')}</div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead className="text-gray-500"><tr>
+                      <th className="text-left py-1">{t('planetxLive.sample')}</th><th>n</th><th>p (ϖ)</th><th>p (Ω)</th><th>p (ω)</th>
+                    </tr></thead>
+                    <tbody className="font-mono text-gray-200">
+                      <tr className="border-t border-white/5">
+                        <td className="py-1 font-sans">{t('planetxLive.sampleComplete', { cc: data.selection.max_condition_code ?? 5 })}</td>
+                        <td className="text-center">{data.varpi.n}</td><td className="text-center">{fmtP(data.varpi.p)}</td>
+                        <td className="text-center">{fmtP(data.node.p)}</td><td className="text-center">{fmtP(data.argperi.p)}</td>
+                      </tr>
+                      <tr className="border-t border-white/5">
+                        <td className="py-1 font-sans">{t('planetxLive.sampleLiterature')}</td>
+                        <td className="text-center">{data.literature.n}</td><td className="text-center">{fmtP(data.literature.varpi.p)}</td>
+                        <td className="text-center">{fmtP(data.literature.node.p)}</td><td className="text-center">{fmtP(data.literature.argperi.p)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-[11px] text-gray-400 mt-2">{t('planetxLive.compareNote')}</p>
+              </div>
+            )}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div>
                 <div className="text-[11px] text-gray-400 mb-1">{t('planetxLive.periPlot')}</div>
@@ -131,10 +163,11 @@ export default function PlanetXPage() {
                         segment={[{ x: 0, y: 0 }, { x: lim * Math.cos((meanDir * Math.PI) / 180), y: lim * Math.sin((meanDir * Math.PI) / 180) }]} />
                       <Tooltip content={<TnoTooltip />} />
                       <Scatter data={peri} fill="#8b5cf6" isAnimationActive={false} />
+                      <Scatter data={periLit} fill="#f59e0b" isAnimationActive={false} />
                     </ScatterChart>
                   </ResponsiveContainer>
                 </div>
-                <p className="text-[10px] text-gray-500">{t('planetxLive.periNote', { mean: meanDir })}</p>
+                <p className="text-[10px] text-gray-500">{t('planetxLive.periNote', { mean: meanDir })} {t('planetxLive.periLegend')}</p>
               </div>
               <div>
                 <div className="text-[11px] text-gray-400 mb-1">{t('planetxLive.aqPlot')}</div>
@@ -149,7 +182,8 @@ export default function PlanetXPage() {
                         label={{ value: 'q (AU)', angle: -90, position: 'insideLeft', fontSize: 10, fill: '#6b7280' }} />
                       <ReferenceLine y={30} stroke="#f59e0b" strokeDasharray="4 3" label={{ value: 'Neptune 30 AU', fill: '#f59e0b', fontSize: 10, position: 'insideBottomRight' }} />
                       <Tooltip content={<TnoTooltip />} />
-                      <Scatter data={data.objects.map((o) => ({ a: o.a_au, q: o.q_au, o }))} fill="#60a5fa" isAnimationActive={false} />
+                      <Scatter data={data.objects.filter((o) => o.in_sample).map((o) => ({ a: o.a_au, q: o.q_au, o }))} fill="#60a5fa" isAnimationActive={false} />
+                      <Scatter data={data.objects.filter((o) => !o.in_sample).map((o) => ({ a: o.a_au, q: o.q_au, o }))} fill="#4b5563" isAnimationActive={false} />
                     </ScatterChart>
                   </ResponsiveContainer>
                 </div>
@@ -163,15 +197,16 @@ export default function PlanetXPage() {
               <div className="overflow-x-auto mt-2">
                 <table className="w-full text-xs">
                   <thead className="text-gray-500 border-b border-white/5">
-                    <tr><th className="text-left py-1">{t('catalogLive.object')}</th><th>a (AU)</th><th>q (AU)</th><th>e</th><th>i (°)</th><th>ϖ (°)</th><th>H</th></tr>
+                    <tr><th className="text-left py-1">{t('catalogLive.object')}</th><th>a (AU)</th><th>q (AU)</th><th>e</th><th>i (°)</th><th>ϖ (°)</th><th>H</th><th title={t('planetxLive.ccHelp')}>CC</th><th>{t('planetxLive.litCol')}</th></tr>
                   </thead>
                   <tbody>
                     {data.objects.map((o) => (
-                      <tr key={o.designation} className="border-b border-white/[0.03] font-mono text-gray-300">
+                      <tr key={o.designation} className={`border-b border-white/[0.03] font-mono ${o.in_sample ? 'text-gray-300' : 'text-gray-600'}`}>
                         <td className="py-1 font-sans"><Link className="text-sky-300 hover:underline" to={`/catalog?q=${encodeURIComponent(o.designation)}`}>{o.name}</Link></td>
                         <td className="text-center">{o.a_au.toFixed(0)}</td><td className="text-center">{o.q_au.toFixed(1)}</td>
-                        <td className="text-center">{o.e.toFixed(3)}</td><td className="text-center">{o.i_deg.toFixed(1)}</td>
+                        <td className="text-center">{o.e?.toFixed(3) ?? '—'}</td><td className="text-center">{o.i_deg?.toFixed(1) ?? '—'}</td>
                         <td className="text-center">{o.varpi_deg.toFixed(1)}</td><td className="text-center">{o.H ?? '—'}</td>
+                        <td className="text-center">{o.condition_code ?? '—'}</td><td className="text-center">{o.in_literature ? '✓' : ''}</td>
                       </tr>
                     ))}
                   </tbody>

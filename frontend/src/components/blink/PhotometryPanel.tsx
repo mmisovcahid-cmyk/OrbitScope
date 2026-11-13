@@ -41,8 +41,9 @@ export default function PhotometryPanel({ targetParams, targetLabel, pick }: Pro
     ctrlRef.current = ctrl;
     const params: Record<string, string | number> =
       src === 'pick' && pick ? { ra: pick[0], dec: pick[1] } : { ...targetParams };
-    params.max_frames = 60;
+    params.max_frames = 96; // dense spectral sampling (e.g. the 3.3 um CH4 band of T dwarfs)
     delete params.fov; delete params.mode; delete params.per_epoch; delete params.detector; delete params.pass_index;
+    delete params.wl_min; delete params.wl_max;
     setLoading(true); setError(null); setProgress(null); setMeasured(src);
     runJob<PhotometryResult>('photometry', params, setProgress, ctrl.signal)
       .then((res) => setData(res))

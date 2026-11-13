@@ -39,6 +39,37 @@ def _pa_deg(dx_px: float, dy_px: float) -> float:
     return (math.degrees(math.atan2(-dx_px, dy_px)) + 360.0) % 360.0
 
 
+TARGET_CONFIRM_SIGMA = 3.0  # one source with a known predicted motion: no look-elsewhere penalty
+
+
+def _target_check(tgt: dict[str, Any], tr: Any, meas_pmra: float, meas_pmdec: float, pix: float) -> dict[str, Any]:
+    """Compare the measured motion of the requested target with its catalog proper motion.
+
+    A blind search over thousands of sources needs 5 sigma; testing one source against a
+    predicted motion needs much less, so 3 sigma plus agreement within 3 errors confirms it.
+    """
+    sig = float(tr.extra.get("pm_sigma") or 0.0)
+    span_yr = (max(d.mjd for d in tr.detections) - min(d.mjd for d in tr.detections)) / 365.25
+    err_px = float(tr.extra.get("pos_err_px") or 0.0)
+    err_mas = (err_px * pix * 1000.0 * math.sqrt(2.0) / span_yr) if span_yr > 0 else None
+    out: dict[str, Any] = {"significance": round(sig, 2), "err_mas_per_year": round(err_mas, 1) if err_mas else None,
+                           "baseline_years": round(span_yr, 2), "detected": sig >= TARGET_CONFIRM_SIGMA}
+    if tgt.get("pmra") is not None and tgt.get("pmdec") is not None and err_mas:
+        epmra, epmdec = float(tgt["pmra"]), float(tgt["pmdec"])
+        diff = math.hypot(meas_pmra - epmra, meas_pmdec - epmdec)
+        exp_pm = math.hypot(epmra, epmdec)
+        out.update({
+            "expected_pm_mas_per_year": round(exp_pm, 1),
+            "measured_pm_mas_per_year": round(math.hypot(meas_pmra, meas_pmdec), 1),
+            "expected_pa_deg": round(math.degrees(math.atan2(epmra, epmdec)) % 360.0, 1),
+            "measured_pa_deg": round(math.degrees(math.atan2(meas_pmra, meas_pmdec)) % 360.0, 1),
+            "difference_mas_per_year": round(diff, 1),
+            "agrees": diff <= max(3.0 * err_mas, 0.15 * exp_pm),
+        })
+        out["confirmed"] = bool(out["detected"] and out["agrees"])
+    return out
+
+
 async def run_detection(
     tgt: dict[str, Any],
     search: str = "asteroids",
@@ -60,7 +91,7 @@ async def run_detection(
     else:
         blink = await spherex_archive.build_blink(
             ra=tgt["ra"], dec=tgt["dec"], fov_deg=fov_deg, detectors=detectors, mode="epoch",
-            per_epoch=max(2, min(12, max_frames // 3)),
+            per_epoch=max(2, min(16, max_frames // 2)),  # deep stacks: faint targets need S/N
             pmra=tgt.get("pmra"), pmdec=tgt.get("pmdec"), ref_epoch=tgt.get("ref_epoch") or 2000.0,
             keep_arrays=True,
         )
@@ -73,8 +104,16 @@ async def run_detection(
     dets = [tuple(f["detectors"]) for f in frames]
     pix = grid["pixscale_arcsec"]
 
+    # Proper-motion search: always measure the requested target itself (mean of its predicted
+    # pixel positions), even when it is too faint for the blind search.
+    forced = None
+    if search != "asteroids":
+        tps = [f.get("target_px") for f in frames if f.get("target_px")]
+        if tps:
+            forced = [(float(np.mean([t[0] for t in tps])), float(np.mean([t[1] for t in tps])))]
+
     report("search")
-    result = await asyncio.to_thread(mo.search, arrays, masks, mjds, dets, pix, search, z_thresh)
+    result = await asyncio.to_thread(mo.search, arrays, masks, mjds, dets, pix, search, z_thresh, forced)
     report("catalogs")
 
     # Reference catalogs (failures are reported, never fatal).
@@ -208,9 +247,15 @@ async def run_detection(
                     cand["class"] = "known_pm_star" if consistent and pm >= 30 else "pm_candidate"
             elif kind == "proper_motion":
                 cand["class"] = "pm_candidate"
+            if tr.extra.get("forced"):
+                cand["is_target"] = True
+                cand["target_name"] = tgt.get("name")
+                cand["target_check"] = _target_check(tgt, tr, meas_pmra, meas_pmdec, pix)
+                if tgt.get("pmra") is not None and tgt.get("pmdec") is not None:
+                    cand["expected_pm_mas_per_year"] = [round(float(tgt["pmra"]), 1), round(float(tgt["pmdec"]), 1)]
         candidates.append(cand)
 
-    order = {"unknown_mover": 0, "pm_candidate": 0, "known_sso": 1, "known_pm_star": 1, "moving_object": 1,
+    order = {"unknown_mover": 0, "pm_candidate": 0, "target_measurement": 1, "known_sso": 1, "known_pm_star": 1, "moving_object": 1,
              "pm_unconfirmed": 2, "variable": 3, "stationary_transient": 3, "variable_or_residual": 4,
              "low_confidence": 5}
     candidates.sort(key=lambda c: (order.get(c["class"], 9), -c["score"]))

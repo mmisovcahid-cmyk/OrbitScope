@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import csv
 import io
+import json
 import math
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
@@ -141,6 +142,26 @@ def parse_sbdb(data: dict[str, Any], query: str) -> dict[str, Any]:
         "url": f"https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr={obj.get('spkid') or query}",
         "is_simulated": False,
     }
+
+
+SBDB_QUERY_URL = SBDB_URL.replace("sbdb.api", "sbdb_query.api")
+ETNO_FIELDS = ["pdes", "full_name", "a", "e", "i", "q", "om", "w", "ad", "H", "condition_code", "data_arc", "n_obs_used"]
+
+
+async def sbdb_query_etnos(min_a_au: float, min_q_au: float) -> list[dict[str, Any]]:
+    """Every object in SBDB with a >= min_a and q >= min_q (JPL SBDB Query API), as dicts."""
+    key = f"etnoq:{min_a_au}:{min_q_au}"
+    if key in _cache:
+        return _cache[key]
+    cdata = json.dumps({"AND": [f"a|GE|{min_a_au:g}", f"q|GE|{min_q_au:g}"]})
+    resp = await _get(SBDB_QUERY_URL, {"fields": ",".join(ETNO_FIELDS), "sb-cdata": cdata}, timeout=60.0)
+    if resp.status_code != 200:
+        raise JPLUnavailable(f"SBDB Query HTTP {resp.status_code}")
+    payload = resp.json()
+    fields = payload.get("fields") or ETNO_FIELDS
+    rows = [dict(zip(fields, r)) for r in payload.get("data", [])]
+    _cache[key] = rows
+    return rows
 
 
 async def sbdb_lookup(query: str) -> dict[str, Any]:

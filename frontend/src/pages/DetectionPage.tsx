@@ -10,7 +10,7 @@ import { JobProgress, isAbort, runJob } from '../lib/jobs';
 import { spherexService } from '../services';
 import api from '../services/api';
 import {
-  Annotation, AnnotationPath, CLASS_COLORS, Candidate, DetectionResult, ReviewStatus, SearchKind, errorText,
+  Annotation, AnnotationPath, CLASS_COLORS, Candidate, DetectionResult, ReviewStatus, SearchKind, TargetCheck, errorText,
   formatDec, formatRA,
 } from '../lib/spherex';
 
@@ -409,6 +409,12 @@ export default function DetectionPage() {
                     </div>
                   </div>
                   <p className="text-[11px] text-gray-400 mt-2">{t(`detect.explain.${sel.class}`, { defaultValue: '' })}</p>
+                  {sel.target_check && <TargetCheckBox c={sel.target_check} />}
+                  {Array.isArray(sel.metrics?.rejected_because) && (sel.metrics.rejected_because as string[]).length > 0 && (
+                    <p className="text-[11px] text-amber-300/90 mt-2">
+                      {t('detect.rejected')}: {(sel.metrics.rejected_because as string[]).map((r) => t(`detect.reject.${r}`, { defaultValue: r })).join('; ')}.
+                    </p>
+                  )}
                   <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] mt-2">
                     <dt className="text-gray-500">RA / Dec</dt><dd className="font-mono text-gray-200">{formatRA(sel.ra)} {formatDec(sel.dec)}</dd>
                     <dt className="text-gray-500">{t('detect.col.rate')}</dt><dd className="text-gray-200">{rateText(sel)}{sel.position_angle_deg != null ? ` · PA ${sel.position_angle_deg}°` : ''}</dd>
@@ -514,6 +520,35 @@ export default function DetectionPage() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Measured vs. catalog motion of the requested target (proper-motion search). */
+function TargetCheckBox({ c }: { c: TargetCheck }) {
+  const { t } = useTranslation();
+  const arc = (mas?: number) => (mas == null ? '—' : `${(mas / 1000).toFixed(2)}″/yr`);
+  const verdict = c.expected_pm_mas_per_year == null
+    ? { text: t('detect.targetCheck.noCatalog'), cls: 'text-gray-400' }
+    : c.confirmed
+      ? { text: t('detect.targetCheck.confirmed'), cls: 'text-emerald-300' }
+      : c.agrees
+        ? { text: t('detect.targetCheck.agreesWeak'), cls: 'text-amber-300' }
+        : { text: t('detect.targetCheck.disagrees'), cls: 'text-rose-300' };
+  return (
+    <div className="mt-2 rounded-lg border border-sky-500/20 bg-sky-500/5 p-2 text-[11px]">
+      <div className="text-sky-200 font-semibold mb-1">{t('detect.targetCheck.title')}</div>
+      <dl className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+        <dt className="text-gray-500">{t('detect.targetCheck.measured')}</dt>
+        <dd className="text-gray-200 font-mono">{arc(c.measured_pm_mas_per_year)}{c.measured_pa_deg != null ? ` · PA ${c.measured_pa_deg}°` : ''}{c.err_mas_per_year != null ? ` ± ${(c.err_mas_per_year / 1000).toFixed(2)}` : ''}</dd>
+        <dt className="text-gray-500">{t('detect.targetCheck.expected')}</dt>
+        <dd className="text-gray-200 font-mono">{arc(c.expected_pm_mas_per_year)}{c.expected_pa_deg != null ? ` · PA ${c.expected_pa_deg}°` : ''}</dd>
+        <dt className="text-gray-500">{t('detect.targetCheck.significance')}</dt>
+        <dd className="text-gray-200">{c.significance} σ</dd>
+        <dt className="text-gray-500">{t('detect.targetCheck.baseline')}</dt>
+        <dd className="text-gray-200">{c.baseline_years} yr</dd>
+      </dl>
+      <div className={`mt-1 ${verdict.cls}`}>{verdict.text}</div>
     </div>
   );
 }

@@ -523,6 +523,22 @@
       "saturated": "doyub",
       "flagged": "aperturada bayraqlı piksellər",
       "lvfNote": "rəng = detektor"
+    },
+    "aladin": {
+      "title": "Səma konteksti (Aladin Lite)",
+      "intro": "Eyni sahə bütün səma xəritələrində (NASA/IPAC IRSA-dan): optik (DSS2), yaxın infraqırmızı (2MASS) və 4.6 µm (AllWISE W2 — soyuq qəhvəyi cırtdanlar burada ən parlaqdır). Mavi çərçivə: SPHEREx kəsiyi; çəhrayı nişan: hədəfin SPHEREx epoxasındakı mövqeyi.",
+      "loading": "Aladin Lite CDS-dən yüklənir…",
+      "error": "Aladin Lite (CDS) hazırda yüklənmədi. Yuxarıdakı Aladin keçidindən istifadə edin və ya bir az sonra yenidən cəhd edin.",
+      "credit": "Aladin Lite © CDS, Strasburq Universiteti / CNRS. HiPS xəritələri DSS2, 2MASS, AllWISE — NASA/IPAC IRSA vasitəsilə."
+    },
+    "band": {
+      "label": "Dalğa uzunluğu zolağı",
+      "none": "Detektorun bütün diapazonu",
+      "h2o": "H₂O udulması",
+      "k": "K zolağı",
+      "ch4": "CH₄ (metan)",
+      "co": "CO / Y-cırtdan zirvəsi",
+      "help": "SPHEREx filtrləri hər detektor boyunca dalğa uzunluğunu dəyişir, ona görə hər ekspozisiya hədəfi fərqli dalğa uzunluğunda görür. Zolaq yalnız hədəfdəki dalğa uzunluğu zolağın içində olan ekspozisiyaları saxlayır - məsələn, CH₄ soyuq qəhvəyi cırtdanları sönükləşdirir, CO/4.6 µm isə WISE 0855 kimi Y-cırtdanları ən parlaq göstərir."
     }
   },
   "detect": {
@@ -598,7 +614,8 @@
       "variable": "Dəyişkən",
       "variable_or_residual": "Ulduz qalığı",
       "low_confidence": "Aşağı etibar",
-      "stationary_transient": "Stasionar keçici"
+      "stationary_transient": "Stasionar keçici",
+      "target_measurement": "Hədəf ölçüldü"
     },
     "explain": {
       "unknown_mover": "Bir ziyarətin bir neçə ekspozisiyasında görünən, sabit səmada olmayan və heç bir məlum asteroid/kometə uyğun gəlməyən mənbə. Real kimi işarələməzdən əvvəl Blink-də yoxlayın.",
@@ -609,12 +626,33 @@
       "variable": "Sabit mövqedə parlaqlıq dəyişib: dəyişkən ulduz və ya artefakt.",
       "variable_or_residual": "Parlaq ulduzun üzərində qalıq; adətən hərəkət deyil, SPHEREx-in dalğa uzunluğundan asılı parlaqlığından yaranır.",
       "low_confidence": "Aşkarlamalar düz xətli hərəkətə yaxşı uyğun gəlmir.",
-      "stationary_transient": "Yalnız bəzi ekspozisiyalarda görünür, lakin SABİT mövqedədir (digər ziyarətlərdə təkrarlanır və ya ziyarətlər arasında hərəkət etməyib). Günəş sistemi obyektləri həmişə hərəkət edir, buna görə bu dəyişkən mənbə, detektor qalıq izi (persistence) və ya digər artefaktdır."
+      "stationary_transient": "Yalnız bəzi ekspozisiyalarda görünür, lakin SABİT mövqedədir (digər ziyarətlərdə təkrarlanır və ya ziyarətlər arasında hərəkət etməyib). Günəş sistemi obyektləri həmişə hərəkət edir, buna görə bu dəyişkən mənbə, detektor qalıq izi (persistence) və ya digər artefaktdır.",
+      "target_measurement": "Sorğu edilən hədəfin özü: kor axtarış üçün çox sönük olsa belə, hər keçiddə ölçülür. Hərəkəti aşağıda kataloqdakı xüsusi hərəkətlə müqayisə olunur."
     },
     "recurrence": "Eyni nöqtədə təkrarlanma",
     "measuredPm": "Ölçülən xüsusi hərəkət",
     "significance": "Yerdəyişmənin əhəmiyyəti",
-    "fluxRatio": "Parlaqlıq dəyişməsi (maks/min)"
+    "fluxRatio": "Parlaqlıq dəyişməsi (maks/min)",
+    "targetCheck": {
+      "title": "Hədəfin hərəkətinin yoxlanışı",
+      "measured": "Ölçülən",
+      "expected": "Kataloq",
+      "significance": "Əhəmiyyət",
+      "baseline": "Zaman bazası",
+      "confirmed": "Hərəkət təsdiqləndi: ≥3σ ilə aşkarlandı və kataloqla uyğundur.",
+      "agreesWeak": "Kataloqla uyğundur, amma 3σ-dan aşağıdır — yeni keçidlər nəticəni dəqiqləşdirəcək.",
+      "disagrees": "Ölçülən hərəkət kataloq dəyəri ilə uyğun gəlmir.",
+      "noCatalog": "Müqayisə üçün kataloqda xüsusi hərəkət yoxdur."
+    },
+    "rejected": "Hərəkətli obyekt sayılmadı, çünki",
+    "reject": {
+      "no_steady_motion": "nöqtələr bir yerin ətrafında titrəyir, sabit hərəkət etmir",
+      "scatter": "mövqelər ölçmə xətasından çox səpələnir",
+      "flux_jump": "parlaqlıq ekspozisiyalar arasında 3 dəfədən çox dəyişir",
+      "missing_in_visit": "parlaq mənbə öz vizitinin əksər ekspozisiyalarında yoxdur",
+      "edge": "şəklin kənarına çox yaxındır"
+    },
+    "reviewTokenPrompt": "Bu serverdə qiymətləndirməni saxlamaq üçün komandanın review tokeni lazımdır. Daxil edin:"
   },
   "jobs": {
     "stage": {
@@ -675,8 +713,8 @@
   "planetxLive": {
     "subtitle": "Doqquzuncu Planet hipotezi NASA/JPL-in canlı orbitləri üzərində yoxlanılır. Bu səhifədəki klaster statistikası OrbitScope tərəfindən hesablanır; sübut kartları və proqnoz parametrləri ədəbiyyat dəyərləridir.",
     "testTitle": "Orbitlərin klasterləşməsi realdırmı? (canlı JPL orbitləri)",
-    "testIntro": "Uzaq ayrılmış TNO-lar (a ≥ 150 AV, q ≥ 30 AV) indi JPL Kiçik Cisimlər Bazasından alınır. Rayleigh testi onların orbit bucaqlarının təsadüfdən artıq dərəcədə bir istiqamətə yönəlib-yönəlmədiyini yoxlayır.",
-    "loading": "JPL-dən ~20 orbit alınır…",
+    "testIntro": "JPL Kiçik Cisimlər Bazasındakı bütün uzaq, ayrılmış TNO-lar (a ≥ 150 AU, q ≥ 30 AU, orbiti yaxşı müəyyən olunmuş) indi canlı gətirilir. Rayleigh testi onların orbital bucaqlarının təsadüfdən artıq bir istiqamətə yönəlib-yönəlmədiyini yoxlayır.",
+    "loading": "Orbitlər JPL-dən gətirilir…",
     "angle": {
       "varpi": "Perihelinin uzunluğu",
       "node": "Yüksələn düyünün uzunluğu",
@@ -693,7 +731,7 @@
     "aqPlot": "Böyük yarımox və perihelin məsafəsi",
     "caveatTitle": "Diqqət:",
     "caveat": "Müşahidə proqramları uzaq TNO-ları yalnız baxdıqları yerdə və vaxtda tapır, buna görə seçim effekti görünən klasterləşmə yarada bilər. Müşahidə meyllərini modelləşdirən təhlillər (Shankman və b. 2017; Napier və b. 2021) klasterləşməni Doqquzuncu Planetsiz də izah olunan hesab edir. Bu test seçim meylini düzəltmir.",
-    "table": "Orbit cədvəli ({{n}} obyekt)",
+    "table": "Orbit cədvəli ({{n}} obyekt; boz = orbiti zəif müəyyən olunub, istifadə edilmir)",
     "missing": "{{n}} obyekt hazırda alına bilmədi",
     "spherexTitle": "SPHEREx və ya OrbitScope Doqquzuncu Planeti tapa bilərmi?",
     "spherexText": "Proqnozlaşdırılan Doqquzuncu Planet çox zəifdir (ehtimal V ≈ 20–24) və 300–500 AV məsafədə saatda yalnız ~0.3″ hərəkət edir (əsasən Yerin öz hərəkəti səbəbindən). OrbitScope-un asteroid axtarışı aşkarlamaları ~7 dəqiqəlik SPHEREx ziyarəti daxilində birləşdirir, buna görə belə yavaş obyekt sabit görünür və tapılmaz; bunun üçün xüsusi çoxgünlük axtarış lazımdır. Bu, hazırkı alətin dürüst məhdudiyyətidir.",
@@ -710,7 +748,15 @@
       "q": "Perihelin məsafəsi",
       "i": "Meyl",
       "period": "Orbital dövr"
-    }
+    },
+    "compareTitle": "Nəticə hansı obyektlərin seçilməsindən asılıdırmı?",
+    "sample": "Nümunə",
+    "sampleComplete": "Tam: JPL-dəki bütün obyektlər, orbit keyfiyyəti ≤ {{cc}}",
+    "sampleLiterature": "Ədəbiyyat: Doqquzuncu Planet məqalələrində müzakirə olunan obyektlər",
+    "compareNote": "Hər iki nümunə JPL-dən canlı gətirilir. Əl ilə seçilmiş ədəbiyyat nümunəsi tam, obyektiv seçilmiş nümunədən xeyli güclü klasterləşir — obyekt seçiminin Doqquzuncu Planet sübutuna təsirini birbaşa göstərir.",
+    "periLegend": "Narıncı: ədəbiyyat nümunəsinin obyektləri.",
+    "ccHelp": "JPL orbit vəziyyət kodu: 0 = ən dəqiq, 9 = ən qeyri-müəyyən. 5-dən yuxarı olanlar (boz) istifadə olunmur.",
+    "litCol": "Ədəb."
   },
   "analysisLive": {
     "measurement": "Ölçmə",

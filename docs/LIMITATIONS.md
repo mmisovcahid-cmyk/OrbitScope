@@ -17,7 +17,8 @@
 5. **Wavelength-dependent appearance.** The wavelength of a source changes between exposures, because each exposure puts it on a different part of the LVF filter.
    - The detection noise model absorbs this.
    - Strongly variable spectra (e.g. emission-line objects) can still leave residuals.
-6. **Planet Nine clustering test.** The Rayleigh test on 20 extreme TNOs ignores survey selection bias. A significant p-value is consistent with the hypothesis but is not evidence of the planet.
+6. **Planet Nine clustering test.** The Rayleigh test does not model survey selection bias. On the complete JPL sample the clustering is much weaker (p ≈ 0.02) than on the 20-object literature sample (p ≈ 5×10⁻⁴). Neither is evidence of the planet itself.
+7. **Faint targets.** Below S/N ≈ 10 in the mean image a source is only measured when it is the requested target (forced astrometry); the blind search cannot find such objects. WISE 0855 is just above that limit with the full DR1 coverage (7.6σ motion) and below it with fewer exposures.
 
 ## Data and service limitations
 
@@ -26,19 +27,21 @@
   - OrbitScope retries, shows an explanation and never substitutes invented data.
   - The five challenge targets resolve offline.
   - `scripts/prewarm.py` caches their images in advance.
-- **First view of a new field** takes 30–90 s while cutouts download. Background jobs show progress and can be cancelled.
+- **First view of a new field** takes 30–90 s while cutouts download. Background jobs show progress and can be cancelled. The five challenge targets are downloaded in advance (`scripts/prewarm.py`, or automatically at startup in Docker).
+- **Withdrawn archive files.** IRSA lists frames of superseded quick releases (QR2) whose files no longer exist. OrbitScope learns this on the first request and replaces those frames; until then a new field may briefly have fewer frames.
 
 ## Infrastructure limitations
 
 - **Single process.** Jobs and rate-limit counters are in memory, which is correct for one backend process. Running several replicas would need Redis or similar.
-- **No user accounts.** Candidate reviews are shared by everyone using the instance. A public deployment that accepts reviews from strangers would need authentication.
+- **No user accounts.** Candidate reviews are shared by everyone using the instance. On a public deployment set `REVIEW_TOKEN`: then only people who know the team's token can save reviews; everyone else can still browse.
 - **Minor Planet Center.** Candidates export as CSV, but reporting requires the team's own MPC observatory code and follow-up observations.
 
 ## Future work
 
 - [ ] Shift-and-stack search across passes, for slow outer-Solar-System objects.
 - [ ] Forced photometry for saturated stars, using the PSF wings.
-- [ ] Aladin Lite panel with SPHEREx footprints next to the cutout viewer.
-- [ ] Wavelength filter in Blink (choose a band range, e.g. 3–3.5 µm for CH₄).
+- [x] Aladin Lite panel with the SPHEREx footprint next to the cutout viewer.
+- [x] Wavelength band filter in Blink (e.g. 3.2–3.45 µm for CH₄).
+- [x] Forced astrometry of the requested target (faint targets such as WISE 0855).
 - [ ] Automatic re-check of saved candidates when a new SPHEREx release appears.
 - [ ] Frontend unit and end-to-end tests (Vitest / Playwright).

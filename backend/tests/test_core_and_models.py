@@ -10,21 +10,10 @@ from app.core.logging_config import JSONFormatter, TextFormatter, get_logger, se
 from app.core.cache import TTLCacheWrapper, catalog_cache, observation_cache, pipeline_cache, api_cache
 from app.models.schemas import (
     APIResponse,
-    CatalogObject,
-    CatalogSearchRequest,
-    CompareObservationsRequest,
-    ComparisonResult,
-    DetectionCandidate,
-    DetectionStatus,
-    EphemerisEntry,
-    EphemerisRequest,
     Locale,
-    Observation,
-    PipelineResult,
     PlanetXEvidence,
-    RunDetectionRequest,
+    PlanetXPrediction,
     SkyRegion,
-    SourceMeasurement,
     get_i18n_message,
 )
 
@@ -101,92 +90,22 @@ def test_cache_functionality():
 
 
 def test_schemas_and_i18n():
-    """Verify astronomical schemas, validation, and localized messaging."""
-    # SkyRegion
+    """Remaining API models: literature labelling and localized messages."""
     region = SkyRegion(
-        ra=45.5,
-        dec=-12.3,
-        radius=2.5,
-        name="Planet X Sector 1",
+        ra=45.5, dec=-12.3, radius=2.5, name="Planet X Sector 1",
         description="Search area in Taurus",
-        descriptions={
-            "en": "Search area in Taurus",
-            "az": "Buğa bürcündə axtarış sahəsi",
-        },
+        descriptions={"en": "Search area in Taurus", "az": "Buğa bürcündə axtarış sahəsi"},
     )
     assert region.get_description(Locale.EN) == "Search area in Taurus"
     assert region.get_description(Locale.AZ) == "Buğa bürcündə axtarış sahəsi"
 
-    # SourceMeasurement
-    measurement = SourceMeasurement(
-        x=500.0,
-        y=450.0,
-        ra=45.52,
-        dec=-12.28,
-        flux=12500.0,
-        snr=8.5,
-    )
-    assert measurement.flux == 12500.0
-    assert measurement.snr == 8.5
+    evidence = PlanetXEvidence(clustering_sigma=3.8, predicted_regions=[region], notes="Batygin & Brown 2016")
+    assert evidence.is_simulated is False and evidence.data_source == "published literature"
+    assert PlanetXPrediction().data_source == "published literature"
 
-    # Observation
-    now_utc = datetime.now(timezone.utc)
-    obs = Observation(
-        id="SPHEREX_001",
-        timestamp=now_utc,
-        ra=45.5,
-        dec=-12.3,
-        band="Band 1",
-        source="SPHEREx",
-    )
-    assert obs.is_simulated is False
-
-    # DetectionCandidate
-    candidate = DetectionCandidate(
-        id="CAND_001",
-        status=DetectionStatus.CANDIDATE,
-        ra=45.52,
-        dec=-12.28,
-        snr=9.2,
-        measurements=[measurement],
-    )
-    assert candidate.status == DetectionStatus.CANDIDATE
-    assert len(candidate.measurements) == 1
-
-    # CatalogObject
-    cat_obj = CatalogObject(
-        designation="90377 Sedna",
-        name="Sedna",
-        semi_major_axis_au=506.0,
-        eccentricity=0.855,
-    )
-    assert cat_obj.designation == "90377 Sedna"
-    assert cat_obj.data_source == "JPL SBDB"
-
-    # PlanetXEvidence
-    evidence = PlanetXEvidence(
-        clustering_sigma=3.8,
-        predicted_regions=[region],
-        notes="Simulation of extreme TNO alignment",
-    )
-    assert evidence.is_simulated is True
-    assert evidence.clustering_sigma == 3.8
-
-    # APIResponse i18n
-    resp_en = APIResponse[CatalogObject].build(
-        data=cat_obj,
-        message_key="catalog_search_success",
-        locale=Locale.EN,
-    )
-    assert resp_en.success is True
-    assert resp_en.locale == Locale.EN
+    resp_en = APIResponse[SkyRegion].build(data=region, message_key="catalog_search_success", locale=Locale.EN)
+    assert resp_en.success is True and resp_en.locale == Locale.EN
     assert resp_en.message == "Catalog query returned matching celestial objects."
-
-    resp_az = APIResponse[CatalogObject].build(
-        data=cat_obj,
-        message_key="catalog_search_success",
-        locale=Locale.AZ,
-    )
-    assert resp_az.success is True
-    assert resp_az.locale == Locale.AZ
+    resp_az = APIResponse[SkyRegion].build(data=region, message_key="catalog_search_success", locale=Locale.AZ)
     assert resp_az.message == "Kataloq sorğusu uyğun səma cisimlərini qaytardı."
+    assert get_i18n_message("catalog_search_success", Locale.AZ) == resp_az.message

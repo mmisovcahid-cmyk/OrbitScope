@@ -48,46 +48,78 @@ def rayleigh(angles_deg: list[float]) -> dict[str, float]:
             "Z": round(z, 3), "p": round(min(max(p, 0.0), 1.0), 5)}
 
 
-async def _one(des: str) -> dict[str, Any] | None:
+MAX_CONDITION_CODE = 5  # JPL orbit uncertainty 0 (best) .. 9; above 5 the angles are poorly known
+
+
+def _f(v: Any) -> float | None:
     try:
-        res = await jc.sbdb_lookup(des)
-    except Exception as exc:  # one missing object must not break the list
-        logger.warning(f"eTNO lookup failed for {des}: {exc}")
+        return float(v)
+    except (TypeError, ValueError):
         return None
-    obj = res.get("match")
-    if not obj:
+
+
+def _row(r: dict[str, Any]) -> dict[str, Any] | None:
+    a, q, om, w = _f(r.get("a")), _f(r.get("q")), _f(r.get("om")), _f(r.get("w"))
+    if None in (a, q, om, w):
         return None
-    e = obj["elements"]
-    if e.get("a_au") is None or e.get("om_deg") is None or e.get("w_deg") is None:
-        return None
+    des = str(r.get("pdes") or "").strip()
+    cc = r.get("condition_code")
     return {
-        "designation": obj["designation"], "name": obj["name"],
-        "a_au": e["a_au"], "e": e["e"], "i_deg": e["i_deg"], "q_au": e["q_au"], "ad_au": e["ad_au"],
-        "om_deg": e["om_deg"], "w_deg": e["w_deg"], "varpi_deg": round((e["om_deg"] + e["w_deg"]) % 360.0, 2),
-        "H": obj["physical"].get("H"), "condition_code": obj["orbit_quality"].get("condition_code"),
-        "url": obj["url"],
+        "designation": des, "name": str(r.get("full_name") or des).strip(),
+        "a_au": a, "e": _f(r.get("e")), "i_deg": _f(r.get("i")), "q_au": q, "ad_au": _f(r.get("ad")),
+        "om_deg": om, "w_deg": w, "varpi_deg": round((om + w) % 360.0, 2),
+        "H": _f(r.get("H")), "condition_code": str(cc) if cc not in (None, "") else None,
+        "data_arc_days": _f(r.get("data_arc")),
+        "url": f"https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr={des.replace(' ', '%20')}",
+    }
+
+
+def _stats(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "n": len(rows),
+        "varpi": rayleigh([r["varpi_deg"] for r in rows]),
+        "node": rayleigh([r["om_deg"] for r in rows]),
+        "argperi": rayleigh([r["w_deg"] for r in rows]),
     }
 
 
 async def etno_analysis() -> dict[str, Any]:
+    """Clustering of extreme TNO orbits, on two samples, both fetched live from JPL.
+
+    - complete: EVERY object in SBDB with a >= 150 AU and q >= 30 AU and a well-determined orbit
+      (condition code <= 5) - an objective selection, nothing hand-picked;
+    - literature: the ~20 objects usually discussed in Planet Nine papers.
+    Comparing the two shows how much the result depends on which objects one picks.
+    """
     if "result" in _cache:
         return _cache["result"]
-    rows = [r for r in await asyncio.gather(*(_one(d) for d in ETNO_DESIGNATIONS)) if r]
+    raw = await jc.sbdb_query_etnos(MIN_A_AU, MIN_Q_AU)
+    rows = [r for r in (_row(x) for x in raw) if r]
     if not rows:
         raise jc.JPLUnavailable("no eTNO orbits could be retrieved")
-    sample = [r for r in rows if r["a_au"] >= MIN_A_AU and r["q_au"] is not None and r["q_au"] >= MIN_Q_AU]
+    lit_set = {d.upper() for d in ETNO_DESIGNATIONS}
+    found: set[str] = set()
     for r in rows:
-        r["in_sample"] = r in sample
+        cc = r["condition_code"]
+        r["in_sample"] = cc is not None and cc.isdigit() and int(cc) <= MAX_CONDITION_CODE
+        # numbered objects: pdes is the number, the provisional designation is in the full name
+        hit = {d for d in lit_set if d == r["designation"].upper() or f"({d})" in r["name"].upper()
+               or r["name"].upper().startswith(d + " ")}
+        r["in_literature"] = bool(hit)
+        found |= hit
+    sample = [r for r in rows if r["in_sample"]]
+    literature = [r for r in rows if r["in_literature"]]
+    complete = _stats(sample)
     out = {
         "objects": sorted(rows, key=lambda r: -r["a_au"]),
-        "selection": {"min_a_au": MIN_A_AU, "min_q_au": MIN_Q_AU},
-        "varpi": rayleigh([r["varpi_deg"] for r in sample]),
-        "node": rayleigh([r["om_deg"] for r in sample]),
-        "argperi": rayleigh([r["w_deg"] for r in sample]),
-        "source": "NASA/JPL Small-Body Database (live orbits)",
+        "selection": {"min_a_au": MIN_A_AU, "min_q_au": MIN_Q_AU, "max_condition_code": MAX_CONDITION_CODE,
+                      "n_total": len(rows)},
+        "varpi": complete["varpi"], "node": complete["node"], "argperi": complete["argperi"],
+        "literature": {**_stats(literature), "designations": ETNO_DESIGNATIONS,
+                       "missing": len(lit_set - found)},
+        "source": "NASA/JPL Small-Body Database Query API (live orbits)",
         "is_simulated": False,
+        "missing": 0,
     }
-    out["missing"] = len(ETNO_DESIGNATIONS) - len(rows)
-    if out["missing"] == 0:  # do not keep a partial result (e.g. one SBDB 503) for 12 hours
-        _cache["result"] = out
+    _cache["result"] = out
     return out

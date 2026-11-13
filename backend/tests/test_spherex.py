@@ -199,9 +199,17 @@ def test_targets_endpoint(client: TestClient) -> None:
 
 
 def test_resolve_coordinates_endpoint(client: TestClient) -> None:
-    res = client.get("/api/v1/spherex/resolve", params={"q": "08h55m10.831s -7d14m42.53s"})
+    res = client.get("/api/v1/spherex/resolve", params={"q": "10.5 -20.25"})
     assert res.status_code == 200
-    assert res.json()["data"]["ra"] == pytest.approx(133.795129, abs=1e-4)
+    d = res.json()["data"]
+    assert d["ra"] == pytest.approx(10.5) and d["dec"] == pytest.approx(-20.25) and d["source"] == "coordinates"
+
+
+def test_challenge_coordinates_recognise_fast_mover(client: TestClient) -> None:
+    """The challenge gives WISE 0855 at its ~2010 position; its proper motion must still be applied."""
+    d = client.get("/api/v1/spherex/resolve", params={"q": "08h55m10.831s -7d14m42.53s"}).json()["data"]
+    assert d["name"] == "WISE 0855-0714" and d["pmra"] == pytest.approx(-8123.7)
+    assert 2008 <= d["matched_epoch"] <= 2012
 
 
 def test_blink_rejects_bad_detector_localized(client: TestClient) -> None:

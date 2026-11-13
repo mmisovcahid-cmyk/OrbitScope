@@ -41,9 +41,9 @@ Every page in the UI uses real data:
 - Blink, Detection, Comparison and Analysis use SPHEREx data via IRSA.
 - Sky Explorer uses the saved runs and candidates plus live status.
 - Catalog uses live JPL data (`app/services/jpl_catalog.py`: SBDB, Horizons, SB Ident).
-- Planet X runs a live Rayleigh clustering test on JPL orbits (`app/services/etno.py`); its evidence cards are labelled literature.
+- Planet X runs a live Rayleigh clustering test on JPL orbits (`app/services/etno.py`): the complete SBDB Query API sample (a ≥ 150 AU, q ≥ 30 AU, condition code ≤ 5) next to the 20-object literature sample; its evidence cards are labelled literature.
 
-Real-data paths must never fall back to invented values: return a 502 with an explanation instead. The test suite blocks network access to SB Ident in `tests/conftest.py`, so it runs offline in about 40 s.
+Real-data paths must never fall back to invented values: return a 502 with an explanation instead. The test suite blocks network access to SB Ident in `tests/conftest.py`, so it runs offline in about 10 s.
 
 - `app/services/spherex_archive.py`:
   1. Queries IRSA TAP `spherex.obscore` with `CONTAINS(POINT(ra,dec), s_region)`. Collections are matched by the `spherex` prefix, so new releases are picked up without code changes.
@@ -82,8 +82,8 @@ Real-data paths must never fall back to invented values: return a 502 with an ex
 - Validated on real data:
   - 626 Notburga (V=13.5) recovered: 8 detections, 1.6″ from JPL, 58″/h.
   - ε Indi B: 4.1″/yr at PA 123°, Gaia match.
-  - WISE 0855−0714: 7.9″/yr at PA 280°, CatWISE match.
-  - Static fields produce no `unknown_mover`.
+  - WISE 0855−0714: 8.2″/yr at PA 286°, 7.6σ, CatWISE match (the requested target is also measured by forced astrometry, `forced=` in `search_proper_motion`, and compared with its catalog PM in `target_check`).
+  - Notburga field, both passes, and the ε Indi B field: 0 `unknown_mover` (quality rules in `track_quality` / `mover_quality_ok`; rejected tracks list `rejected_because`).
   - Synthetic tests are in `tests/test_moving_objects.py`.
 - The uvicorn `--reload` watcher restarts the backend on any change under `backend/` (tests included), which drops in-flight long requests. Expect this while editing during a long blink or photometry call.
 
@@ -98,7 +98,10 @@ Real-data paths must never fall back to invented values: return a 502 with an ex
 - **`app/pipeline/moving_objects.py`** — the only pipeline module.
 - **`app/models/schemas.py`** — Pydantic models. Only `ApiResponse`, `SystemStatus` and the Planet X models are still used; the rest are prototype leftovers.
 - **`app/core/`** — `config.py` (pydantic-settings `settings`), `progress.py`, `rate_limit.py`, `cache.py` (TTL caches), `logging_config.py`.
-- **`scripts/prewarm.py`** — `python -m scripts.prewarm` downloads the five challenge targets' cutouts (blink + photometry) before a demo.
+- **`app/services/prewarm.py`** (+ `scripts/prewarm.py` CLI) — downloads all six detectors, the Comparison stacks and the spectra of the five challenge targets and saves the three Detection examples once. Runs in the background at startup when `PREWARM_ON_STARTUP=true` (Docker).
+- **Archive hygiene** (`spherex_archive.py`): frames without a Level-2 file are remembered (`""` in `datalink_urls.json`), collections with ≥80 % missing files are treated as withdrawn (QR2), stale coverage lists naming them are re-queried, and lost frames are replaced in a second download round. Coverage is cached 6 h.
+- **Blink band filter**: `wl_min`/`wl_max` (µm) on `/blink`, `/blink.gif` and blink jobs, applied per exposure via the LVF wavelength at the target.
+- **`app/core/validation_i18n.py`** — 422 responses carry one localized sentence in `detail` (raw list in `errors`).
 
 ### Data transparency (project invariant)
 
@@ -108,13 +111,15 @@ Every endpoint serves real data from IRSA, JPL, ESA, CDS or NED. On failure it r
 
 - `DEBUG` defaults to false; `.env.example` sets it to true for local reload.
 - `RATE_LIMIT_PER_MINUTE` (default 60) limits expensive requests per client IP.
+- `REVIEW_TOKEN`: when set, `PATCH /candidates/{id}` needs header `X-Review-Token` (the UI asks once and remembers it).
+- `PREWARM_ON_STARTUP`: background prewarm (true in docker-compose).
 - `TRUST_PROXY_HEADERS=true` (set in docker-compose) takes the IP from nginx's `X-Real-IP`.
 - Jobs and rate-limit counters are in-process, so run a single backend process.
 
 ## Frontend architecture
 
 - `src/App.tsx` sets up react-router routes (lazy-loaded), all inside a shared `Layout` except `/embed`. Pages live in `src/pages/`:
-  - `/` SPHEREx Blink
+  - `/` SPHEREx Blink (with `components/blink/AladinPanel.tsx`: CDS Aladin Lite, loaded on demand)
   - `/dashboard` Sky Explorer (`components/skymap/AllSkyMap.tsx`)
   - `/detection`
   - `/analysis/:id` (saved candidate)

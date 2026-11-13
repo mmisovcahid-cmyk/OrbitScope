@@ -72,6 +72,10 @@ REPORTED_FLAGS = ("OVERFLOW", "SUR_ERROR", "NONLINEAR", "PERSIST", "OUTLIER", "T
 NATIVE_PIXSCALE_ARCSEC = 6.15
 EPOCH_GAP_DAYS = 30.0
 MAX_DOWNLOADS = 48
+DOWNLOAD_CONCURRENCY = 10   # parallel IRSA cutout downloads (IRSA copes well; 503s are retried)
+WITHDRAWN_MIN_MISSES = 10   # a collection counts as withdrawn after >= 10 missing files ...
+WITHDRAWN_FRACTION = 0.8    # ... that are >= 80 % of all files looked up in it
+COVERAGE_TTL_S = 6 * 3600   # re-ask IRSA which frames cover a position at least every 6 h (new releases)
 
 
 class SpherexError(Exception):
@@ -165,9 +169,10 @@ class SpherexArchive:
         self._urls_path = self.cache_dir / "datalink_urls.json"
         self._urls: dict[str, str] = self._load_json(self._urls_path)
         self._coverage_cache: TTLCache = TTLCache(maxsize=256, ttl=6 * 3600)
-        self._sem = asyncio.Semaphore(6)
+        self._sem = asyncio.Semaphore(DOWNLOAD_CONCURRENCY)
         self._locks: dict[str, asyncio.Lock] = {}
         self._new_downloads = 0
+        self._withdrawn_cache: Optional[tuple[int, set[str]]] = None
 
     # ------------------------------------------------------------------ utils
     @staticmethod
@@ -182,6 +187,26 @@ class SpherexArchive:
             self._urls_path.write_text(json.dumps(self._urls), encoding="utf-8")
         except Exception as exc:  # cache write failures are non-fatal
             logger.warning(f"Could not persist datalink cache: {exc}")
+
+    def available(self, rec: "FrameRecord") -> bool:
+        """False for frames whose Level-2 file is known to be missing from the archive, and for
+        collections where most looked-up files are missing (e.g. a quick release superseded by a
+        data release: IRSA keeps the metadata but withdraws the files)."""
+        if self._urls.get(rec.key, None) == "":
+            return False
+        return rec.collection not in self._withdrawn_collections()
+
+    def _withdrawn_collections(self) -> set[str]:
+        if self._withdrawn_cache is not None and self._withdrawn_cache[0] == len(self._urls):
+            return self._withdrawn_cache[1]
+        seen: dict[str, list[int]] = {}
+        for k, v in self._urls.items():
+            col = k.split(":", 1)[0]
+            c = seen.setdefault(col, [0, 0])
+            c[0 if v else 1] += 1
+        out = {col for col, (ok, miss) in seen.items() if miss >= WITHDRAWN_MIN_MISSES and miss >= WITHDRAWN_FRACTION * (ok + miss)}
+        self._withdrawn_cache = (len(self._urls), out)
+        return out
 
     # ------------------------------------------------------------ cache upkeep
     def cache_stats(self) -> dict[str, Any]:
@@ -230,9 +255,15 @@ class SpherexArchive:
         report("coverage")
 
         disk = self.cache_dir / f"coverage_{hashlib.md5(key.encode()).hexdigest()[:16]}.json"
-        if disk.exists() and time.time() - disk.stat().st_mtime < 24 * 3600:
+        rows = None
+        if disk.exists() and time.time() - disk.stat().st_mtime < COVERAGE_TTL_S:
             rows = json.loads(disk.read_text(encoding="utf-8"))
-        else:
+            # A cached list that still names a withdrawn release predates IRSA's reprocessing
+            # (e.g. QR2 -> DR1): ask again, the current archive lists the new frames.
+            withdrawn = self._withdrawn_collections()
+            if withdrawn and any(r.get("obs_collection") in withdrawn for r in rows):
+                rows = None
+        if rows is None:
             adql = (
                 "SELECT obs_collection, obs_id, t_min, t_max, em_min, em_max, energy_bandpassname "
                 "FROM spherex.obscore "
@@ -317,6 +348,8 @@ class SpherexArchive:
     # -------------------------------------------------------------- download
     async def _resolve_file_url(self, client: httpx.AsyncClient, rec: FrameRecord) -> str:
         if rec.key in self._urls:
+            if not self._urls[rec.key]:  # known to have no Level-2 file (e.g. withdrawn quick release)
+                raise SpherexError("upstream", f"No Level-2 file found for {rec.key}")
             return self._urls[rec.key]
         params = {"ID": f"ivo://irsa.ipac/{rec.collection}?{rec.obs_id}/D{rec.detector}"}
         resp = await client.get(DATALINK_URL, params=params)
@@ -325,6 +358,8 @@ class SpherexArchive:
             self._urls[rec.key] = cand
             self._save_urls()
             return cand
+        self._urls[rec.key] = ""  # remember, so later requests do not ask datalink again
+        self._save_urls()
         raise SpherexError("upstream", f"No Level-2 file found for {rec.key}")
 
     async def fetch_cutout(
@@ -434,6 +469,8 @@ class SpherexArchive:
         ref_epoch: float = 2000.0,
         pass_index: Optional[int] = None,
         keep_arrays: bool = False,
+        wl_min: Optional[float] = None,
+        wl_max: Optional[float] = None,
     ) -> dict[str, Any]:
         """Build co-registered frames.
 
@@ -442,7 +479,12 @@ class SpherexArchive:
         mode="pass":   individual exposures from ONE survey pass (pass_index), keeping whole
                        short exposure sequences together - the right input for asteroid searches
         keep_arrays:   also return raw float arrays / masks under "_arrays" / "_masks" (internal use)
+        wl_min/wl_max: wavelength band in um. SPHEREx's linear variable filters put a source at a
+                       different wavelength in every exposure, so the band is applied per exposure
+                       (the wavelength at the target pixel) after download; detectors whose range
+                       does not overlap the band are skipped before download.
         """
+        per_epoch_req = per_epoch
         t0 = time.perf_counter()
         has_pm = pmra is not None and pmdec is not None and (abs(pmra) > 0 or abs(pmdec) > 0)
 
@@ -462,32 +504,65 @@ class SpherexArchive:
         else:
             c_ra, c_dec = ra, dec
 
-        frames = [f for f in all_frames if not detectors or f.detector in detectors]
+        band = wl_min is not None or wl_max is not None
+        lo = wl_min if wl_min is not None else 0.0
+        hi = wl_max if wl_max is not None else 99.0
+        frames = [f for f in all_frames if (not detectors or f.detector in detectors) and self.available(f)
+                  and (not band or (f.em_max_um >= lo and f.em_min_um <= hi))]
         if not frames:
-            raise SpherexError("no_detector_coverage", "No frames for the selected detector(s).")
+            raise SpherexError("no_band_coverage" if band else "no_detector_coverage",
+                               "No frames for the selected detector(s) / band.")
+        if band and mode == "epoch":
+            # only a fraction of the exposures fall in a narrow band: download a full budget
+            per_epoch = MAX_DOWNLOADS
 
-        if mode == "pass":
-            passes = group_epochs(frames)
-            if pass_index is None:
-                pass_index = max(range(len(passes)), key=lambda i: len(passes[i]))
-            if not 0 <= pass_index < len(passes):
-                raise SpherexError("bad_pass", f"Pass index must be 0..{len(passes) - 1}.")
-            groups = [[f] for f in select_sequences(passes[pass_index], min(max_frames, MAX_DOWNLOADS))]
-        else:
-            groups = select_groups(frames, mode, per_epoch, max_frames)
+        requested_pass = pass_index
+
+        def choose(pool: list[FrameRecord]) -> tuple[list[list[FrameRecord]], Optional[int]]:
+            if mode == "pass":
+                passes = group_epochs(pool)
+                pi = requested_pass
+                if pi is None:
+                    pi = max(range(len(passes)), key=lambda i: len(passes[i]))
+                if not 0 <= pi < len(passes):
+                    raise SpherexError("bad_pass", f"Pass index must be 0..{len(passes) - 1}.")
+                return [[f] for f in select_sequences(passes[pi], min(max_frames, MAX_DOWNLOADS))], pi
+            return select_groups(pool, mode, per_epoch, max_frames), None
+
+        groups, pass_index = choose(frames)
         size_px = int(round(fov_deg * 3600.0 / NATIVE_PIXSCALE_ARCSEC))
         size_px = max(15, size_px + (1 - size_px % 2))
         out_wcs = make_target_wcs(c_ra, c_dec, size_px, NATIVE_PIXSCALE_ARCSEC)
         cut_size = fov_deg * 1.5 + 0.01  # margin so reprojection never runs off the cutout
 
-        needed = {r.key: r for g in groups for r in g}
+        cutouts: dict[str, Cutout] = {}
         async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=30.0), follow_redirects=True) as client:
-            results = await gather_with_progress(
-                "download", (self.fetch_cutout(client, r, c_ra, c_dec, cut_size) for r in needed.values())
-            )
-        cutouts = {c.record.key: c for c in results if c is not None}
+            # Some archive frames turn out to have no Level-2 file (withdrawn quick releases). They
+            # are remembered, so a second round picks replacements from the remaining frames.
+            for _round in range(2):
+                needed = {r.key: r for g in groups for r in g if r.key not in cutouts}
+                if not needed:
+                    break
+                results = await gather_with_progress(
+                    "download", (self.fetch_cutout(client, r, c_ra, c_dec, cut_size) for r in needed.values())
+                )
+                cutouts.update({c.record.key: c for c in results if c is not None})
+                lost = [k for k in needed if k not in cutouts and not self.available(needed[k])]
+                if not lost:
+                    break
+                frames = [f for f in frames if self.available(f)]
+                if not frames:
+                    break
+                groups, pass_index = choose(frames)
         if not cutouts:
             raise SpherexError("upstream", "Could not download any SPHEREx cutouts from IRSA.")
+        if band:
+            cutouts = {k: c for k, c in cutouts.items() if c.wavelength_um is not None and lo <= c.wavelength_um <= hi}
+            if not cutouts:
+                raise SpherexError("no_band_coverage", "No exposure sees this position inside the band.")
+            if mode == "epoch":
+                groups = [[r for r in g if r.key in cutouts][:max(1, per_epoch_req)] for g in groups]
+            groups = [g for g in groups if any(r.key in cutouts for r in g)]
 
         report("assemble")
         out_frames = await asyncio.to_thread(
@@ -520,6 +595,7 @@ class SpherexArchive:
             "source": "NASA/IPAC IRSA - SPHEREx Level-2 spectral images (" + ", ".join(coverage["collections"]) + ")",
             "is_simulated": False,
             "pass_index": pass_index if mode == "pass" else None,
+            "band_um": [wl_min, wl_max] if band else None,
             "elapsed_s": round(time.perf_counter() - t0, 2),
         }
         if keep_arrays:
@@ -550,7 +626,7 @@ class SpherexArchive:
         q_ra, q_dec = (ra, dec)
         if has_pm:
             q_ra, q_dec = propagate(ra, dec, pmra or 0.0, pmdec or 0.0, ref_epoch, mjd_to_year(61000.0))
-        frames = await self.query_frames(q_ra, q_dec)
+        frames = [f for f in await self.query_frames(q_ra, q_dec) if self.available(f)]
         if detectors:
             frames = [f for f in frames if f.detector in detectors]
         if not frames:
@@ -565,9 +641,18 @@ class SpherexArchive:
         motion_deg = (math.hypot(pmra or 0.0, pmdec or 0.0) / 3.6e6) * span_yr if has_pm else 0.0
         cut_size = 0.03 + 2 * motion_deg
         async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=30.0), follow_redirects=True) as client:
-            cutouts = await gather_with_progress(
+            cutouts = list(await gather_with_progress(
                 "download", (self.fetch_cutout(client, r, c_ra, c_dec, cut_size) for r in picked)
-            )
+            ))
+            # replace frames whose files turned out to be withdrawn (see build_blink)
+            lost = sum(1 for r, c in zip(picked, cutouts) if c is None and not self.available(r))
+            if lost:
+                used = {r.key for r in picked}
+                spare = [f for f in frames if f.key not in used and self.available(f)]
+                extra = select_for_photometry(spare, lost) if spare else []
+                cutouts += await gather_with_progress(
+                    "download", (self.fetch_cutout(client, r, c_ra, c_dec, cut_size) for r in extra)
+                )
         report("measure")
 
         points = []

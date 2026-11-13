@@ -12,6 +12,8 @@ OrbitScope calls them directly from the backend. Results are cached on disk or i
 | ESA Gaia archive TAP | `gea.esac.esa.int/tap-server/tap/sync` (`gaiadr3.gaia_source`) | Reference stars, proper motions | Blink overlay, Detection (PM) | No |
 | NASA/JPL SBDB | `ssd-api.jpl.nasa.gov/sbdb.api` | Orbits, physical data, discovery, close approaches | Catalog, Planet X | No |
 | NASA/JPL Horizons | `ssd.jpl.nasa.gov/api/horizons.api` | Current position / ephemeris | Catalog | No |
+| NASA/JPL SBDB Query API | `ssd-api.jpl.nasa.gov/sbdb_query.api` | Every extreme TNO (a ≥ 150 AU, q ≥ 30 AU) for the clustering test | Planet X | No |
+| CDS Aladin Lite + HiPS | `aladin.cds.unistra.fr` (script loaded on demand in the browser) | Sky context: DSS2, 2MASS, AllWISE around the target | Blink | No |
 | NASA/JPL SB Ident | `ssd-api.jpl.nasa.gov/sb_ident.api` | Known asteroids/comets in a field at a time | Detection, Catalog field search | No |
 | CDS Sesame (+ CfA mirror) | `cds.unistra.fr/cgi-bin/nph-sesame`, `vizier.cfa.harvard.edu/viz-bin/nph-sesame` | Object name to coordinates and proper motion | Name search everywhere | No |
 | NED name resolver | `ned.ipac.caltech.edu/srs/ObjectLookup` | Fallback name resolver | Name search | No |

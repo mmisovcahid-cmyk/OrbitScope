@@ -17,3 +17,12 @@ def _no_sb_ident_network(monkeypatch):
 
     monkeypatch.setattr(sb, "objects_in_field", offline)
     yield
+
+
+@pytest.fixture(autouse=True)
+def _catalog_disk_cache_in_tmp(tmp_path, monkeypatch):
+    """Tests use fake catalog rows: never let them land in the real on-disk catalog cache."""
+    import app.services.catalog_overlay as co
+
+    monkeypatch.setattr(co, "_disk_path", lambda key: tmp_path / f"cat_{abs(hash(key))}.json")
+    yield
