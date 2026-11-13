@@ -1174,7 +1174,6 @@ class SystemStatus(BaseModel):
     version: str = Field(default="1.0.0", description="Backend version")
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="Current UTC timestamp")
     uptime_seconds: Optional[float] = Field(default=None, description="System uptime in seconds")
-    demo_mode: bool = Field(default=True, description="Whether server is running in demo/fallback mode")
     components: Dict[str, Any] = Field(default_factory=dict, description="Status of internal services and cache")
 
 

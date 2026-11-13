@@ -1,122 +1,74 @@
 # OrbitScope — System Architecture
 
-## High-Level Architecture
-
 ```
-┌─────────────────────────────────────────────────────┐
-│                    Frontend (React)                   │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌─────────┐ │
-│  │Sky Explorer│ │Detection │ │Comparison│ │Planet X │ │
-│  └─────┬─────┘ └─────┬────┘ └─────┬────┘ └────┬────┘ │
-│        └──────────────┴──────────┬─┴───────────┘      │
-│                          API Service Layer             │
-└─────────────────────────────────┬─────────────────────┘
-                                  │ HTTP/REST
-┌─────────────────────────────────┴─────────────────────┐
-│                   Backend (FastAPI)                     │
-│  ┌──────────────────────────────────────────────────┐  │
-│  │                   API Routes                      │  │
-│  │  /sky  /observations  /detection  /catalog  ...   │  │
-│  └──────────────────────┬───────────────────────────┘  │
-│                         │                               │
-│  ┌──────────────────────┴───────────────────────────┐  │
-│  │              Service Layer                        │  │
-│  │  ┌─────────────┐ ┌────────────┐ ┌──────────────┐ │  │
-│  │  │ JPL Client  │ │IRSA Client │ │SPHEREx Data  │ │  │
-│  │  └──────┬──────┘ └─────┬──────┘ └──────┬───────┘ │  │
-│  └─────────┼──────────────┼───────────────┼─────────┘  │
-│            │              │               │             │
-│  ┌─────────┴──────────────┴───────────────┴─────────┐  │
-│  │           Scientific Pipeline                     │  │
-│  │  Preprocessing → Alignment → Detection            │  │
-│  │  → Subtraction → Association → Cross-match        │  │
-│  │  → Classification → ML Scoring                    │  │
-│  └──────────────────────────────────────────────────┘  │
-│                                                         │
-│  ┌──────────────────────────────────────────────────┐  │
-│  │     Cache Layer (In-Memory TTL Cache)             │  │
-│  └──────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────┘
-          │                    │
-          ▼                    ▼
-  ┌───────────────┐   ┌─────────────────┐
-  │ JPL SBDB API  │   │ IRSA TAP Service│
-  │ JPL Horizons  │   │ (SPHEREx data)  │
-  └───────────────┘   └─────────────────┘
+ Browser (React + TypeScript + Vite)
+ ├─ Blink /, Embed /embed       canvas viewer: stretch, colour maps, difference, motion colour, overlays
+ ├─ Detection /detection        moving-object search, candidate review, CSV export
+ ├─ Sky Explorer /dashboard     all-sky map of saved runs and candidates, live service status
+ ├─ Comparison /comparison      two real survey passes side by side
+ ├─ Analysis /analysis/:id      one saved candidate: metrics, matches, link to Blink
+ ├─ Catalog /catalog            live JPL object lookup, ephemeris, field search
+ └─ Planet X /planetx           live eTNO clustering test + literature
+        │  axios (VITE_API_BASE; empty = same origin)
+        ▼
+ nginx (Docker only): static files, /api → backend
+        ▼
+ FastAPI backend (Python 3.10+)
+ ├─ middleware: JSON 500s · rate limit on expensive endpoints · CORS
+ ├─ routes/spherex.py   targets, resolve, coverage, blink, blink.gif, photometry, overlay, detect, candidates, overview, status
+ ├─ routes/jobs.py      POST/GET/DELETE /api/v1/jobs (background blink, detect, photometry)
+ ├─ routes/catalog.py   object, search, ephemeris, nearby
+ ├─ routes/planetx.py   clustering (live), tnos (live), evidence + regions (literature)
+ └─ routes/system.py    health, status, datasources
+        │
+ services/
+ ├─ spherex_archive.py  IRSA TAP + datalink + cutouts, reprojection, coadd, photometry, disk cache
+ ├─ target_resolver.py  coordinates, 5 built-in targets, CDS Sesame (+ CfA mirror), NED
+ ├─ catalog_overlay.py  Gaia DR3 (ESA TAP), CatWISE2020 (IRSA TAP)
+ ├─ small_bodies.py     JPL SB Ident (known asteroids/comets in a field)
+ ├─ jpl_catalog.py      JPL SBDB, Horizons
+ ├─ etno.py             Rayleigh clustering of extreme TNO orbits
+ ├─ detection_service   runs pipeline/moving_objects.py, catalog matching, classification
+ ├─ candidate_store.py  SQLite (runs, candidates, reviews)
+ └─ jobs.py             in-process asyncio job manager (max 3 concurrent, deduplicated)
+        │
+ External (all public, no API keys): NASA/IPAC IRSA · ESA Gaia · NASA/JPL SSD · CDS · NED
 ```
 
-## Component Details
+## Request flow: Blink on a new field
 
-### Frontend Components
+1. The browser submits `POST /api/v1/jobs {kind: "blink", params}` and polls `GET /api/v1/jobs/{id}`. The job reports stage and done/total.
+2. `target_resolver` turns the name into a position and proper motion.
+3. `spherex_archive.query_frames` runs the IRSA TAP query, which is cached.
+4. `select` picks the frames: epochs or one pass, per detector.
+5. The cutouts are downloaded in parallel (cached on disk; retried on 5xx).
+6. Each cutout is reprojected onto a common TAN grid; the frames of each pass are coadded.
+7. The result is base64 float32 frames plus metadata and file URLs. The browser renders them, and Gaia/CatWISE overlays are fetched separately.
 
-| Component | Purpose | Key Libraries |
-|-----------|---------|---------------|
-| Sky Map | Interactive astronomical sky visualization | HTML5 Canvas |
-| Detection UI | Pipeline control and results display | React, Recharts |
-| Comparison | Side-by-side epoch comparison | Canvas |
-| Planet X | Evidence explorer | Recharts |
-| Catalog Browser | JPL SBDB search interface | React |
-| i18n | Multi-language support (EN/AZ) | i18next |
+Repeated requests reuse the cached cutouts and return in about 1 s. Before a demo, `python -m scripts.prewarm` fills the cache for the five challenge targets.
 
-### Backend Services
+## State and persistence
 
-| Service | Purpose | External Dependency |
-|---------|---------|-------------------|
-| JPL Client | Small-body queries, ephemeris | JPL SBDB API, Horizons API |
-| IRSA Client | SPHEREx data queries | IRSA TAP service |
-| SPHEREx Data | Data management and demo generation | IRSA / Local cache |
-| Pipeline Manager | Scientific processing orchestration | Internal |
-| Anomaly Detector | ML-based candidate ranking | Internal |
+| What | Where | Lifetime |
+|---|---|---|
+| SPHEREx cutouts, datalink URLs, coverage queries | `backend/cache/spherex/` (Docker: `/data/cache`) | Disk; LRU-pruned to `SPHEREX_CACHE_MAX_MB` |
+| Detection runs, candidates, reviews | SQLite `backend/data/orbitscope.db` (Docker: `/data/db`) | Permanent |
+| Catalog / JPL / overlay responses | In-memory TTL caches | Process lifetime |
+| Background jobs | In memory | 30 min after completion |
 
-### API Endpoints
+## Deployment
 
-| Route Group | Endpoints | Purpose |
-|-------------|-----------|---------|
-| `/api/v1/sky` | regions, observations, objects | Sky exploration |
-| `/api/v1/observations` | list, detail, image, compare | Observation management |
-| `/api/v1/detection` | run, candidates, crossmatch | Detection pipeline |
-| `/api/v1/catalog` | search, object, ephemeris, nearby | JPL integration |
-| `/api/v1/planetx` | evidence, tnos, regions | Planet Nine research |
-| `/api/v1/system` | health, status, datasources | System monitoring |
+- `docker compose up --build` serves the whole app on port 8080. Runtime data lives in the `orbitscope-data` volume.
+- Docker defaults: `DEBUG=false`, rate limit 60 expensive requests per client per minute, client IP taken from nginx (`TRUST_PROXY_HEADERS=true`).
+- **Scaling:** a single backend process is assumed, because jobs and rate-limit counters are in memory. For several replicas they would move to Redis; that is not needed for a demo deployment.
 
-## Data Flow
+## Technology
 
-### Detection Pipeline Flow
-
-```
-1. User selects sky region (RA, Dec, radius)
-2. Backend queries available observations
-3. User selects observation epochs
-4. Backend runs detection pipeline:
-   a. Load observation images
-   b. Estimate and subtract background
-   c. Align images astrometrically
-   d. Detect sources in each epoch
-   e. Compute image differences
-   f. Associate sources across epochs
-   g. Identify moving candidates
-   h. Cross-match with JPL catalog
-   i. Score with ML anomaly detector
-   j. Generate classification
-5. Results returned with full provenance
-6. Frontend displays candidates with visualizations
-```
-
-## Technology Stack
-
-| Layer | Technology | Justification |
-|-------|-----------|---------------|
-| Frontend Framework | React 18 + TypeScript | Type safety, component architecture |
-| Build Tool | Vite | Fast development builds |
-| Styling | Tailwind CSS | Rapid professional theming |
-| Charts | Recharts | React-native charting |
-| Icons | Lucide React | Consistent icon set |
-| HTTP Client | Axios | Request interceptors, error handling |
-| i18n | i18next | Industry standard localization |
-| Backend Framework | FastAPI | Async, auto-docs, type validation |
-| HTTP Client (Python) | httpx | Async HTTP requests |
-| Astronomy | Astropy | WCS, coordinates, FITS |
-| Image Processing | OpenCV, scikit-image | Registration, morphology |
-| Source Detection | Photutils | DAOStarFinder, background estimation |
-| ML | scikit-learn | Isolation Forest |
-| Caching | cachetools | In-memory TTL cache |
+| Layer | Tools |
+|---|---|
+| Backend | FastAPI, uvicorn, httpx, pydantic-settings |
+| Science | astropy (FITS, WCS, coordinates), numpy, scipy (`ndimage`) |
+| Storage | SQLite, cachetools |
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS, react-router, i18next (EN/AZ), Recharts, Canvas 2D |
+| Quality | pytest (offline, with real FITS fixtures), ESLint 9, `tsc` |
+| Deployment | Docker, nginx |

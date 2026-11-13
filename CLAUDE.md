@@ -15,7 +15,7 @@ Backend (run from `backend/`, Python 3.10+):
 pip install -r requirements.txt
 python run.py                         # uvicorn app.main:app on :8000 (reload when DEBUG=true); docs at /docs
 pytest tests/ -v                      # all tests
-pytest tests/test_pipeline.py -v      # one file
+pytest tests/test_moving_objects.py -v   # one file
 pytest tests/test_api_and_ml.py::test_root_endpoint -v   # one test
 ```
 Config comes from `backend/.env` (template: `.env.example`), loaded by `app/core/config.py` (pydantic-settings, `settings` singleton).
@@ -43,7 +43,7 @@ Every page in the UI uses real data:
 - Catalog uses live JPL data (`app/services/jpl_catalog.py`: SBDB, Horizons, SB Ident).
 - Planet X runs a live Rayleigh clustering test on JPL orbits (`app/services/etno.py`); its evidence cards are labelled literature.
 
-Real-data paths must never fall back to invented values: return a 502 with an explanation instead. Only the deprecated legacy routers `/api/v1/{sky,observations,detection}` (and the old `jpl_client` they use) still produce `[SIMULATED]` data, and they are not used by the UI. The test suite blocks network access to SB Ident in `tests/conftest.py`, so it runs offline in about 40 s.
+Real-data paths must never fall back to invented values: return a 502 with an explanation instead. The test suite blocks network access to SB Ident in `tests/conftest.py`, so it runs offline in about 40 s.
 
 - `app/services/spherex_archive.py`:
   1. Queries IRSA TAP `spherex.obscore` with `CONTAINS(POINT(ra,dec), s_region)`. Collections are matched by the `spherex` prefix, so new releases are picked up without code changes.
@@ -89,17 +89,27 @@ Real-data paths must never fall back to invented values: return a 502 with an ex
 
 ## Backend architecture
 
-- **`app/main.py`** — FastAPI app. The `lifespan` hook registers service singletons on `app.state` (`jpl_client`, `irsa_client`, `spherex_data`, `demo_data`, `pipeline_manager`) plus in-memory session stores `app.state._candidates` and `app.state._observations`. Routes fetch these via `request.app.state` (no DI container, no database — all state is per-process and lost on restart). Several service imports are wrapped in `try/except ImportError` and may be `None`; routes guard for that.
-- **`app/api/routes/`** — one router per area, each with prefix `/api/v1/<area>`: `sky`, `observations`, `detection`, `catalog`, `planetx`, `system`. Routes take a `locale` param and return localized messages from a per-module `MESSAGES = {"en": ..., "az": ...}` dict — add both languages when adding messages.
-- **`app/models/schemas.py`** — all Pydantic models (single large file) shared by routes, services and pipeline.
-- **`app/services/`** — external clients: `jpl_client` (SBDB, Horizons, CAD via httpx), `irsa_client` (IRSA TAP for SPHEREx), `spherex_data` (data management), `demo_data` (synthetic data generator).
-- **`app/pipeline/`** — `pipeline_manager.PipelineManager.run_detection` orchestrates stages in order: data ingestion → `preprocessor` → `source_detector` (photutils) → `alignment` (WCS / phase correlation) → `subtractor` → `candidate_associator` → `crossmatcher` (JPL). Each stage appends a telemetry dict to `stages`, returned as `PipelineResult.pipeline_stages` for provenance. When no real images are available it builds synthetic frames with a synthetic WCS.
-- **`app/ml/`** — `feature_extractor` + `anomaly_detector` (Isolation Forest) for ranking candidates.
-- **`app/core/cache.py`** — thread-safe `TTLCacheWrapper` around cachetools; module-level `catalog_cache` / `observation_cache` instances.
+- **`app/main.py`** — FastAPI app.
+  - Middleware: `json_errors` (JSON 500s), then `RateLimitMiddleware` (`app/core/rate_limit.py`), then CORS outermost, so 429s and 500s keep CORS headers.
+  - The `lifespan` hook records the startup time and prunes the SPHEREx cache.
+  - There are no service singletons on `app.state`: modules import their own singletons (`spherex_archive`, `job_manager`, `get_store()`).
+- **`app/api/routes/`** — `spherex`, `jobs`, `catalog`, `planetx`, `system`, each with prefix `/api/v1/<area>`. Routes take a `locale` param and return localized messages from a per-module `MESSAGES = {"en": ..., "az": ...}` dict; add both languages when adding messages.
+- **`app/services/`** — real-data services only (see the sections above). The old simulated prototype was removed: the `sky`/`observations`/`detection` routers, `demo_data`, `jpl_client`, `irsa_client`, `spherex_data`, the photutils pipeline and `app/ml`.
+- **`app/pipeline/moving_objects.py`** — the only pipeline module.
+- **`app/models/schemas.py`** — Pydantic models. Only `ApiResponse`, `SystemStatus` and the Planet X models are still used; the rest are prototype leftovers.
+- **`app/core/`** — `config.py` (pydantic-settings `settings`), `progress.py`, `rate_limit.py`, `cache.py` (TTL caches), `logging_config.py`.
+- **`scripts/prewarm.py`** — `python -m scripts.prewarm` downloads the five challenge targets' cutouts (blink + photometry) before a demo.
 
-### Demo mode and data transparency (project invariant)
+### Data transparency (project invariant)
 
-`DEMO_MODE` (default true) makes services fall back to simulated data when NASA/JPL APIs are unreachable (see `jpl_client.py`, `spherex_data.py`); routes like `detection` also have their own fallback result builders. Simulated data must always be flagged — models carry `is_simulated` / `data_source` fields and the UI labels it `[SIMULATED]`. Detected objects are "candidates", never discoveries; Planet Nine is presented as an unconfirmed hypothesis. Preserve these distinctions in any new data paths or UI copy.
+Every endpoint serves real data from IRSA, JPL, ESA, CDS or NED. On failure it returns an HTTP 502 with a localized explanation; it never falls back to invented values. Literature content (Planet X evidence and corridors) is labelled `data_source: "published literature"`. Detected objects are "candidates", never discoveries; Planet Nine is presented as an unconfirmed hypothesis. Preserve these distinctions in any new data path or UI copy.
+
+### Public deployment
+
+- `DEBUG` defaults to false; `.env.example` sets it to true for local reload.
+- `RATE_LIMIT_PER_MINUTE` (default 60) limits expensive requests per client IP.
+- `TRUST_PROXY_HEADERS=true` (set in docker-compose) takes the IP from nginx's `X-Real-IP`.
+- Jobs and rate-limit counters are in-process, so run a single backend process.
 
 ## Frontend architecture
 
@@ -113,8 +123,7 @@ Real-data paths must never fall back to invented values: return a 502 with an ex
   - `/catalog` (live JPL; `?q=` deep link)
   - `/about`
   - `/embed` (outside the Layout)
-- `src/services/api.ts` (axios instance) + `src/services/index.ts` (`skyService`, `detectionService`, `catalogService`, etc., one per backend router).
-- `src/hooks/useApi.ts` — generic fetch hook; unwraps `res.data.data ?? res.data`, so backend responses are typically wrapped in a `data` envelope.
-- `src/types/index.ts` — TS mirrors of backend schemas; keep in sync with `schemas.py` when changing API shapes.
+- `src/services/api.ts` (axios instance) + `src/services/index.ts` (`spherexService`, `catalogService`, `planetxService`, `systemService`). Backend responses are wrapped in a `data` envelope.
+- API types live next to their users: `src/lib/spherex.ts` (SPHEREx, detection, candidates) and inside the page files.
 - `src/i18n/en.json` and `az.json` — every UI string needs a key in both files.
 - Charts use Recharts; `@` alias maps to `src/`.

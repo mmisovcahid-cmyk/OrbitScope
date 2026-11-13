@@ -1,6 +1,6 @@
 # 🔭 OrbitScope
 
-## SPHEREx Time-Domain Sky Monitoring & Moving Object Detection Platform
+## SPHEREx Time-Domain Sky Monitoring & Moving Object Detection
 
 <div align="center">
 
@@ -12,238 +12,138 @@
 
 ---
 
-OrbitScope is an interactive astronomical monitoring and analysis platform that combines NASA SPHEREx observation data with NASA/JPL Small-Body Database and other astronomical resources.
+OrbitScope is a public web tool for the NASA Space Apps challenge *"Planet X and SPHEREx"*. You enter a sky position or an object name, and it shows the **real SPHEREx images** of that place as a short time series ("blink"), so that moving and changing objects stand out. It also searches the same images for asteroids and high-proper-motion stars and checks every result against NASA/JPL, Gaia and CatWISE.
 
-## 🚀 Features
+Every page uses **real public data**: NASA/IPAC IRSA, NASA/JPL and ESA. No API keys are needed, and no simulated fallbacks exist. If a service is down, the page explains that instead of inventing values.
 
-- **Sky Explorer** — Interactive astronomical sky map with observation layers
-- **Moving Object Detection** — Scientific image-processing pipeline for identifying moving celestial sources
-- **Candidate Analysis** — Detailed analysis of detected candidate objects with cross-matching
-- **Observation Comparison** — Side-by-side temporal comparison of sky observations
-- **JPL Catalog Integration** — Real-time access to NASA/JPL Small-Body Database
-- **Planet X Research** — Evidence explorer for the Planet Nine hypothesis
-- **Multi-language Support** — English and Azerbaijani (Azərbaycan dili)
+## 🚀 Pages
 
-## 🏗️ Architecture
+| Page | What it does |
+|---|---|
+| **Blink** (`/`) | SPHEREx image time series of any position.<br>Views: blink, difference, motion colour and stack.<br>Choice of detector/wavelength (D1–D6, 0.75–5 µm) and field of view.<br>Gaia DR3 / CatWISE2020 overlays moved to each frame's date.<br>Quality flags, proper-motion marker, GIF export and links to the source FITS files.<br>Spectrum + light curve from up to 96 exposures. |
+| **Detection** (`/detection`) | Moving-object search on real exposures: asteroids/comets, or proper motion.<br>Checks against JPL SB Ident, Gaia and CatWISE.<br>Candidate review (real / artifact / unsure) and CSV export. |
+| **Sky Explorer** (`/dashboard`) | All-sky map of every saved run and candidate, review counts, live service status. |
+| **Comparison** (`/comparison`) | Two real SPHEREx survey passes of one field side by side, with a difference image. |
+| **Analysis** (`/analysis/:id`) | One saved candidate: track, metrics and catalog matches, with links to the same field in Blink and to JPL. |
+| **Catalog** (`/catalog`) | Live JPL SBDB lookup (orbit, physical data, close approaches), Horizons ephemeris, known objects in a field (SB Ident). |
+| **Planet X** (`/planetx`) | Live Rayleigh test for orbital clustering of 20 extreme TNOs, with orbits from JPL. Published evidence and search corridors are labelled as literature. |
+| **Embed** (`/embed?...`) | iframe-friendly Blink for other websites. |
 
-```
-OrbitScope
-├── backend/          # Python FastAPI backend
-│   ├── app/
-│   │   ├── api/      # REST API routes
-│   │   ├── core/     # Configuration, caching, logging
-│   │   ├── models/   # Pydantic schemas
-│   │   ├── services/ # External API clients (JPL, IRSA)
-│   │   ├── pipeline/ # Scientific processing pipeline
-│   │   └── ml/       # Machine learning modules
-│   └── tests/        # Backend tests
-├── frontend/         # React + TypeScript frontend
-│   └── src/
-│       ├── components/  # UI components
-│       ├── pages/       # Page views
-│       ├── services/    # API service layer
-│       ├── i18n/        # Internationalization (EN/AZ)
-│       ├── hooks/       # Custom React hooks
-│       └── types/       # TypeScript type definitions
-└── docs/             # Documentation
-```
+The interface is bilingual (English / Azərbaycan dili). The URL holds the full query, so every view can be shared or embedded:
 
-## 📋 Prerequisites
+- `http://localhost:5173/?target=Barnard%27s+Star&fov=0.1&det=3`
+- `http://localhost:5173/embed?target=WISE+0855-0714&det=6`
 
-- **Python 3.10+**
-- **Node.js 18+**
-- **npm or yarn**
+## ✅ Validated on real SPHEREx data
 
-## 🔧 Installation & Setup
+| Test | Result |
+|---|---|
+| 626 Notburga (asteroid, V = 13.5) | 8 detections, 1.6″ from the JPL position, 58″/h |
+| ε Indi B (brown dwarf) | proper motion 4.1″/yr at PA ≈ 123°, matched to Gaia |
+| WISE 0855−0714 (coldest known brown dwarf) | 7.9″/yr at PA 280°, matched to CatWISE |
+| ε Indi B spectrum | CH₄ absorption near 3.3 µm visible |
+| Static fields | no false `unknown_mover` |
+| Planet X test (live JPL orbits) | ϖ clustered around ≈ 68°, Rayleigh p ≈ 5×10⁻⁴ |
 
-### 1. Clone and Navigate
+Method details: [docs/METHODOLOGY.md](docs/METHODOLOGY.md). Honest limitations: [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
 
-```bash
-cd orbitscope
-```
+## 🔧 Running locally
 
-### 2. Backend Setup
+Requirements: **Python 3.10+**, **Node.js 18+**.
+
+**Windows, one click:** run `start.bat` (or `start.ps1`). It opens the backend on :8000 and the frontend on :5173 in two windows.
+
+**Manually:**
 
 ```bash
 cd backend
-
-# Create virtual environment
-python -m venv venv
-
-# Activate (Windows)
-.\venv\Scripts\activate
-
-# Activate (Linux/Mac)
-source venv/bin/activate
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Copy environment config
-copy .env.example .env    # Windows
-# cp .env.example .env    # Linux/Mac
-
-# Start backend server
-python run.py
+copy .env.example .env      # Linux/macOS: cp .env.example .env
+python run.py               # http://localhost:8000, API docs at /docs
 ```
-
-The backend will start at **http://localhost:8000**
-
-API documentation: **http://localhost:8000/docs**
-
-### 3. Frontend Setup
 
 ```bash
 cd frontend
-
-# Install dependencies
 npm install
-
-# Start development server
-npm run dev
+npm run dev                 # http://localhost:5173
 ```
 
-The frontend will start at **http://localhost:5173**
+### Before a demo: fill the cache
 
-## ✨ SPHEREx Blink — real data time-lapse (home page)
+The first view of a new field downloads 16–60 image cutouts from IRSA, which takes 30–90 s. Run this once before presenting, and the five challenge targets open instantly:
 
-Type an object name or coordinates (e.g. `Barnard's Star`, `08h55m10.831s -7d14m42.53s`, `269.452 4.693`).
-OrbitScope fetches every real SPHEREx Level-2 exposure covering that point from NASA/IPAC IRSA, aligns them
-north-up, stacks one image per survey pass and plays them as a movie. View modes: **Blink**, **Difference**
-and **Motion colour** (older frame red, newer frame cyan). Other features: per-detector wavelength choice
-(D1–D6, 0.75–5 µm), quality-flag overlay, a proper-motion target marker, and links to the source FITS files.
+```bash
+cd backend
+python -m scripts.prewarm
+```
 
-- Shareable URL: `http://localhost:5173/?target=Barnard%27s+Star&fov=0.1&det=3`
-- Embed: `http://localhost:5173/embed?target=WISE+0855-0714&det=6` (iframe-friendly)
-- API: `GET /api/v1/spherex/blink?target=...|ra=&dec=&fov=0.1&detector=3&mode=epoch|frames`
-  and `GET /api/v1/spherex/blink.gif?...` (animated GIF)
+Options: `--targets barnard,wise-0855`, `--all-detectors`, `--no-photometry`.
 
-The first request for a new field downloads cutouts (30–90 s); after that it is served from `backend/cache/spherex/`.
-
-## 🛰️ Moving-object search on real data (`/detection`)
-
-- **Asteroids & comets:** uses the individual exposures of one survey pass. A static-sky template per detector is subtracted, residuals are linked within SPHEREx's ~7-minute visits, and fixed-position transients are rejected. Every track is checked against NASA/JPL SB Ident.
-- **Proper motion:** uses one stack per survey pass. Sources are measured astrometrically and checked against Gaia DR3 and CatWISE2020.
-- **Validated on real SPHEREx data:**
-  - 626 Notburga recovered (1.6″ from JPL).
-  - ε Indi B and WISE 0855−0714 recovered with the correct speed and direction.
-- Candidates are stored in `backend/data/orbitscope.db`. They can be reviewed (real / artifact / unsure) and exported as CSV.
-- API: `GET /api/v1/spherex/detect?target=…&search=asteroids|proper_motion&fov=0.3&detector=1,4&pass_index=0`
-
-## 🐳 Docker (one command)
+## 🐳 Docker (public deployment)
 
 ```bash
 docker compose up --build
 ```
 
-Open **http://localhost:8080**. nginx serves the built frontend and proxies `/api` to the backend. The SPHEREx cutout cache and the candidate database live in the `orbitscope-data` volume. The cache is capped by `SPHEREX_CACHE_MAX_MB` and older cutouts are pruned automatically.
-
-## ⚙️ Operations
-
-- **Background jobs:** long requests (blink, detection, photometry on a new field) run as jobs. The UI shows the stage, a done/total counter and a Cancel button. API: `POST /api/v1/jobs`, `GET/DELETE /api/v1/jobs/{id}`. Identical requests share one job.
-- **Health:** `GET /api/v1/spherex/status` reports IRSA reachability and latency, cache size, candidate review counts and job counts.
-- **Quality checks:**
-
-  ```bash
-  cd backend && pytest tests/ -q
-  ```
+- **Serving:** open **http://localhost:8080**. nginx serves the built frontend and proxies `/api` to the backend.
+- **Data:** the SPHEREx cache and the candidate database live in the `orbitscope-data` volume.
+- **Production defaults:**
+  - `DEBUG=false`.
+  - Expensive requests (blink, photometry, detection, catalog) are limited to 60 per client per minute (`RATE_LIMIT_PER_MINUTE`).
+  - The client IP is taken from nginx.
+- **Cache warm-up:**
 
   ```bash
-  cd frontend && npm run lint && npm run build
+  docker compose exec backend python -m scripts.prewarm
   ```
 
-  The backend tests include real SPHEREx cutouts in `backend/tests/fixtures`.
-
-## 🔬 Scientific Pipeline
-
-OrbitScope implements a modular astronomical detection pipeline:
+## 🏗️ Structure
 
 ```
-DATA SOURCE → DATA RETRIEVAL → METADATA VALIDATION
-    → IMAGE PREPROCESSING → ASTROMETRIC ALIGNMENT
-    → SOURCE DETECTION → MULTI-EPOCH ASSOCIATION
-    → CANDIDATE GENERATION → JPL CATALOG CROSS-MATCH
-    → CLASSIFICATION & UNCERTAINTY → VISUALIZATION
+backend/
+  app/api/routes/   spherex, jobs, catalog, planetx, system
+  app/services/     spherex_archive, target_resolver, catalog_overlay, small_bodies,
+                    jpl_catalog, etno, detection_service, candidate_store, jobs
+  app/pipeline/     moving_objects (asteroid + proper-motion search)
+  app/core/         config, progress, rate limit, cache, logging
+  scripts/          prewarm
+  tests/            offline tests incl. real SPHEREx FITS fixtures
+frontend/src/
+  pages/            Blink, Embed, Detection, Dashboard, Comparison, Analysis, Catalog, PlanetX, About
+  components/       blink viewer, photometry panel, all-sky map, job progress, layout
+  lib/              SPHEREx decoding/stretch/WCS, background jobs
+  i18n/             en.json, az.json
+docs/               METHODOLOGY, ARCHITECTURE, DATA_SOURCES, LIMITATIONS, REFERENCES
 ```
 
-### Pipeline Components
+Architecture and request flow: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Every external service: [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md).
 
-| Stage | Method | Library |
-|-------|--------|---------|
-| Background Estimation | SExtractor-style | Photutils |
-| Source Detection | DAOStarFinder | Photutils |
-| Image Alignment | WCS-based | Astropy |
-| Image Registration | Phase correlation | scikit-image |
-| Image Subtraction | Kernel-matched | NumPy/SciPy |
-| Candidate Association | Positional matching | Astropy |
-| Anomaly Detection | Isolation Forest | scikit-learn |
-| Cross-matching | Cone search | JPL SBDB API |
+## 🧪 Quality checks
 
-## 🌐 Data Sources
-
-| Source | Type | Status |
-|--------|------|--------|
-| NASA SPHEREx (via IRSA) | Observations | ✅ Integrated (availability depends on public releases) |
-| JPL Small-Body Database | Catalog | ✅ Live API |
-| JPL Horizons | Ephemeris | ✅ Live API |
-| Demo Data Generator | Testing | ✅ Clearly labeled |
-
-## ⚠️ Data Transparency
-
-OrbitScope clearly distinguishes between:
-
-- **Real Data** — Sourced from NASA/JPL APIs with provenance
-- **Simulated Data** — Generated for demonstration, always labeled as `[SIMULATED]`
-- **Candidates** — Algorithmically detected, not confirmed discoveries
-- **Known Objects** — Cross-matched against verified catalogs
-
-> **Important:** OrbitScope is a scientific analysis tool. It does not claim discoveries.
-> All detected candidates require independent verification.
-> Planet Nine has not been directly confirmed — the Planet X module explores the scientific hypothesis.
-
-## 🧪 Testing
-
-### Backend Tests
 ```bash
-cd backend
-pytest tests/ -v
+cd backend && pytest tests/ -q
 ```
 
-### Frontend Build Check
 ```bash
-cd frontend
-npm run build
+cd frontend && npm run lint && npm run build
 ```
 
-## 🌍 Language Support
+The backend tests run offline. They include real SPHEREx cutouts (`backend/tests/fixtures`) and synthetic moving-object scenes.
 
-OrbitScope supports:
-- **English (EN)** — Default
-- **Azərbaycan dili (AZ)** — Full Azerbaijani translation
+## ⚠️ Data transparency
 
-Switch languages using the toggle in the top navigation bar.
+- **Real data only:** every number on screen comes from IRSA, JPL, ESA, CDS or NED, with the source named.
+- **Candidates are not discoveries:** a candidate needs independent confirmation and an MPC report by a registered observer.
+- **Planet Nine is a hypothesis:** the Planet X page tests orbital clustering. It does not claim to find the planet.
 
 ## 📚 References
 
-- [NASA SPHEREx Mission](https://spherex.caltech.edu/)
-- [NASA/IPAC Infrared Science Archive](https://irsa.ipac.caltech.edu/)
-- [JPL Small-Body Database](https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html)
-- [JPL Horizons System](https://ssd.jpl.nasa.gov/horizons/)
-- [Batygin & Brown (2016) — Planet Nine](https://doi.org/10.3847/0004-6256/151/2/22)
+- [NASA SPHEREx](https://spherex.caltech.edu/) · [IRSA SPHEREx data](https://irsa.ipac.caltech.edu/Missions/spherex.html)
+- [JPL Small-Body Database](https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html) · [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/)
+- [Gaia DR3](https://www.cosmos.esa.int/web/gaia/dr3) · [CatWISE2020](https://irsa.ipac.caltech.edu/data/WISE/CatWISE/)
+- Batygin & Brown (2016), [AJ 151, 22](https://doi.org/10.3847/0004-6256/151/2/22)
+- Full list: [docs/REFERENCES.md](docs/REFERENCES.md)
 
 ## 📄 License
 
-This project is developed for educational and scientific exploration purposes.
-NASA data is used under NASA's open data policy.
-
-## 🤝 Credits
-
-Built as a scientific exploration platform demonstrating how SPHEREx observations and NASA/JPL data can be used to explore and investigate potentially moving celestial objects.
-
----
-
-<div align="center">
-<i>OrbitScope — Professional Astronomical Monitoring Platform</i>
-<br/>
-<i>"Göyü kəşf edin. Naməlumu araşdırın."</i>
-</div>
+MIT for the OrbitScope code (see [LICENSE](LICENSE)). NASA, JPL and ESA data are used under their open-data policies.

@@ -39,27 +39,41 @@
 4. Batygin, K., Adams, F. C., Brown, M. E., & Becker, J. C. (2019). "The planet nine hypothesis." *Physics Reports*, 805, 1–53.
    DOI: [10.1016/j.physrep.2019.01.009](https://doi.org/10.1016/j.physrep.2019.01.009)
 
-### Source Detection Methods
+### Planet Nine: selection-bias critiques
 
-5. Stetson, P. B. (1987). "DAOPHOT: A Computer Program for Crowded-Field Stellar Photometry." *PASP*, 99, 191.
-   DOI: [10.1086/131977](https://doi.org/10.1086/131977)
+5. Shankman, C. et al. (2017). "OSSOS. VI. Striking Biases in the Detection of Large Semimajor Axis Trans-Neptunian Objects." *AJ*, 154, 50.
+   DOI: [10.3847/1538-3881/aa7aed](https://doi.org/10.3847/1538-3881/aa7aed)
 
-6. Bertin, E. & Arnouts, S. (1996). "SExtractor: Software for source extraction." *A&AS*, 117, 393–404.
-   DOI: [10.1051/aas:1996164](https://doi.org/10.1051/aas:1996164)
+6. Napier, K. J. et al. (2021). "No Evidence for Orbital Clustering in the Extreme Trans-Neptunian Objects." *PSJ*, 2, 59.
+   DOI: [10.3847/PSJ/abe53e](https://doi.org/10.3847/PSJ/abe53e)
 
-### Image Subtraction
+### SPHEREx and reference catalogs
 
-7. Alard, C. & Lupton, R. H. (1998). "A Method for Optimal Image Subtraction." *ApJ*, 503, 325.
-   DOI: [10.1086/305984](https://doi.org/10.1086/305984)
+7. Doré, O. et al. (2014). "Cosmology with the SPHEREX All-Sky Spectral Survey." arXiv:[1412.4872](https://arxiv.org/abs/1412.4872)
 
-### Software Libraries
+8. Gaia Collaboration, Vallenari, A. et al. (2023). "Gaia Data Release 3: Summary of the content and survey properties." *A&A*, 674, A1.
+   DOI: [10.1051/0004-6361/202243940](https://doi.org/10.1051/0004-6361/202243940)
 
-8. Astropy Collaboration (2022). "The Astropy Project: Sustaining and Growing a Community-driven Open-source Project and the Latest Major Release (v5.0) of the Core Package." *ApJ*, 935, 167.
+9. Marocco, F. et al. (2021). "The CatWISE2020 Catalog." *ApJS*, 253, 8.
+   DOI: [10.3847/1538-4365/abd805](https://doi.org/10.3847/1538-4365/abd805)
 
-9. Bradley, L. et al. (2023). "astropy/photutils: 1.8.0." Zenodo.
+### Challenge test targets
+
+10. Luhman, K. L. (2014). "Discovery of a ~250 K Brown Dwarf at 2 pc from the Sun." *ApJL*, 786, L18.
+    DOI: [10.1088/2041-8205/786/2/L18](https://doi.org/10.1088/2041-8205/786/2/L18)
+
+11. Scholz, R.-D. et al. (2003). "ε Indi B: A new benchmark T dwarf." *A&A*, 398, L29.
+    DOI: [10.1051/0004-6361:20021847](https://doi.org/10.1051/0004-6361:20021847)
+
+### Methods and software
+
+12. Mardia, K. V. & Jupp, P. E. (2000). *Directional Statistics.* Wiley. (Rayleigh test for circular clustering)
+
+13. Astropy Collaboration (2022). "The Astropy Project: Sustaining and Growing a Community-driven Open-source Project and the Latest Major Release (v5.0) of the Core Package." *ApJ*, 935, 167.
+
+14. Virtanen, P. et al. (2020). "SciPy 1.0: fundamental algorithms for scientific computing in Python." *Nature Methods*, 17, 261–272.
 
 ## Data Licensing
 
-- NASA data is used under NASA's open data policy
-- JPL API data is publicly accessible
-- This project is for educational and scientific exploration purposes
+- NASA SPHEREx, IRSA and JPL data are used under NASA's open data policy; ESA Gaia data under the Gaia data licence (CC BY-SA 3.0 IGO), with acknowledgement.
+- The OrbitScope code is MIT-licensed (see `LICENSE`).

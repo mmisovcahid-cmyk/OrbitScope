@@ -3,31 +3,6 @@ import i18n from '../i18n';
 
 const locale = () => i18n.language || 'en';
 
-export const skyService = {
-  getRegions: () => api.get('/api/v1/sky/regions', { params: { locale: locale() } }),
-  getObservations: (ra: number, dec: number, radius = 1) =>
-    api.get('/api/v1/sky/observations', { params: { ra, dec, radius, locale: locale() } }),
-  getObjects: (ra: number, dec: number, radius = 1) =>
-    api.get('/api/v1/sky/objects', { params: { ra, dec, radius, locale: locale() } }),
-};
-
-export const observationService = {
-  list: () => api.get('/api/v1/observations/', { params: { locale: locale() } }),
-  get: (id: string) => api.get(`/api/v1/observations/${id}`, { params: { locale: locale() } }),
-  getImage: (id: string) => api.get(`/api/v1/observations/${id}/image`, { params: { locale: locale() } }),
-  compare: (obs1: string, obs2: string) =>
-    api.post('/api/v1/observations/compare', { observation_id_1: obs1, observation_id_2: obs2, locale: locale() }),
-};
-
-export const detectionService = {
-  run: (observationIds: string[]) =>
-    api.post('/api/v1/detection/run', { observation_ids: observationIds, locale: locale() }),
-  getCandidates: () => api.get('/api/v1/detection/candidates', { params: { locale: locale() } }),
-  getCandidate: (id: string) => api.get(`/api/v1/detection/candidates/${id}`, { params: { locale: locale() } }),
-  crossMatch: (id: string) =>
-    api.post(`/api/v1/detection/crossmatch/${id}`, { locale: locale() }),
-};
-
 export const catalogService = {
   search: (query: string) =>
     api.get('/api/v1/catalog/search', { params: { query, locale: locale() } }),

@@ -16,8 +16,6 @@ OrbitScope calls them directly from the backend. Results are cached on disk or i
 | CDS Sesame (+ CfA mirror) | `cds.unistra.fr/cgi-bin/nph-sesame`, `vizier.cfa.harvard.edu/viz-bin/nph-sesame` | Object name to coordinates and proper motion | Name search everywhere | No |
 | NED name resolver | `ned.ipac.caltech.edu/srs/ObjectLookup` | Fallback name resolver | Name search | No |
 
-`NASA_API_KEY` in `.env.example` is not used by any of these services. It can stay empty.
-
 ## Behaviour when a service is down
 
 - **Real-data pages never substitute invented values.** If IRSA or JPL fails, the page shows an explanation (backend HTTP 502). Earlier versions silently fell back to simulated objects; that behaviour was removed.
@@ -27,11 +25,15 @@ OrbitScope calls them directly from the backend. Results are cached on disk or i
 - **CatWISE / Gaia overlay:** failures only hide the overlay; the images still load.
 - **Name search:** if CDS Sesame is down, the CfA mirror is tried, then NED. The five challenge targets are built in with Gaia DR3 / SIMBAD positions and proper motions, so they always resolve.
 
-## Legacy demo endpoints
+## No simulated data
 
-`/api/v1/sky`, `/api/v1/observations` and `/api/v1/detection` come from the original prototype. They generate **simulated** data, labelled `is_simulated: true` / `[SIMULATED]`. The UI no longer uses them, and they are marked *deprecated* in the API docs (`/docs`).
+The original prototype had `/api/v1/sky`, `/api/v1/observations` and `/api/v1/detection` endpoints that generated simulated data. They and their generators were removed, so every endpoint now serves real data or an error.
+
+## Rate limit (public deployments)
+
+Requests that make the backend download from these services (blink, photometry, detection, overlay, catalog, clustering) are limited per client: `RATE_LIMIT_PER_MINUTE`, default 60. This protects both the OrbitScope server and the public archives. Status, job polling and saved candidates are not limited.
 
 ## What would need the team's own action (not automatable here)
 
 - **Reporting a confirmed new object to the Minor Planet Center:** this requires an MPC observatory/submitter registration and follow-up astrometry. OrbitScope exports candidate astrometry as CSV for that purpose.
-- **Deployment to a public URL:** `docker compose up --build` is ready. A host (VM / cloud) and a domain have to be chosen by the team. The Docker images have not been built on this development machine because Docker is not installed here.
+- **Deployment to a public URL:** `docker compose up --build` is ready. A host (VM / cloud) and a domain have to be chosen by the team. After deploying, run `docker compose exec backend python -m scripts.prewarm` once. The Docker images have not been built on this development machine because Docker is not installed here.

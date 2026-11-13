@@ -79,39 +79,47 @@ async def health_check(
     "/status",
     response_model=ApiResponse,
     summary="System detailed status",
-    description="Returns demo mode setting, cache memory stats, observation counts, and active pipelines.",
+    description="Returns uptime, cache statistics, saved candidates and background jobs.",
 )
 async def system_status(
     request: Request,
     locale: str = Query("en", description="Preferred response locale (en or az)"),
 ) -> ApiResponse:
     """Return comprehensive system status."""
-    uptime = _get_uptime_seconds(request)
-    candidates_dict = getattr(request.app.state, "_candidates", {})
-    observations_dict = getattr(request.app.state, "_observations", {})
+    from app.services.candidate_store import get_store
+    from app.services.jobs import job_manager
+    from app.services.spherex_archive import spherex_archive
 
+    uptime = _get_uptime_seconds(request)
     total_cache_size = (
         getattr(catalog_cache, "size", 0)
         + getattr(observation_cache, "size", 0)
         + getattr(pipeline_cache, "size", 0)
     )
+    try:
+        cutouts = spherex_archive.cache_stats()
+    except Exception as exc:  # noqa: BLE001 - status must never fail
+        cutouts = {"error": str(exc)}
 
     status_data = SystemStatus(
         status="operational",
         service=settings.APP_NAME,
         version=settings.APP_VERSION,
         uptime_seconds=round(uptime, 2),
-        demo_mode=settings.DEMO_MODE,
         components={
             "data_sources": {
-                "JPL_SBDB": "available",
-                "JPL_HORIZONS": "available",
-                "IRSA_TAP": "available",
-                "DEMO_GENERATOR": "active" if settings.DEMO_MODE else "standby",
+                "IRSA_SPHEREX": "live",
+                "GAIA_DR3": "live",
+                "CATWISE2020": "live",
+                "JPL_SBDB": "live",
+                "JPL_HORIZONS": "live",
+                "JPL_SB_IDENT": "live",
             },
             "cache_size": total_cache_size,
-            "total_observations": len(observations_dict),
-            "total_candidates": len(candidates_dict),
+            "spherex_cutout_cache": cutouts,
+            "candidates": get_store().counts(),
+            "jobs": job_manager.stats(),
+            "rate_limit_per_minute": settings.RATE_LIMIT_PER_MINUTE,
         },
     )
 
@@ -166,11 +174,13 @@ async def list_datasources(
                 "is_live": False,
             }
 
-    # Parallel ping probes
+    # Parallel ping probes of every archive the real-data pages use
     results = await asyncio.gather(
+        _ping_endpoint(settings.IRSA_TAP_URL, "NASA/IPAC IRSA (SPHEREx, CatWISE2020)", {"REQUEST": "getCapabilities"}),
+        _ping_endpoint("https://gea.esac.esa.int/tap-server/tap/availability", "ESA Gaia Archive (DR3)"),
         _ping_endpoint(settings.JPL_SBDB_URL, "NASA/JPL Small-Body Database", {"sstr": "Ceres"}),
         _ping_endpoint(settings.JPL_HORIZONS_URL, "NASA/JPL Horizons System", {"format": "json"}),
-        _ping_endpoint(settings.IRSA_TAP_URL, "NASA/IPAC Infrared Science Archive (IRSA)", {"REQUEST": "getCapabilities"}),
+        _ping_endpoint("https://ssd-api.jpl.nasa.gov/sb_ident.api", "NASA/JPL SB Ident"),
         return_exceptions=True,
     )
 
@@ -180,17 +190,6 @@ async def list_datasources(
             data_sources_list.append(r)
         else:
             data_sources_list.append({"status": "unknown", "error": str(r)})
-
-    # Append internal Demo Data Generator
-    data_sources_list.append({
-        "name": "OrbitScope Demo Data Engine",
-        "endpoint": "internal://demo_data",
-        "status": "online",
-        "latency_ms": 0.1,
-        "is_live": True,
-        "is_simulated": True,
-        "note": "Provides simulated SPHEREx time-series data for testing and demonstration.",
-    })
 
     return ApiResponse(
         success=True,

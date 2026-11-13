@@ -1,24 +1,12 @@
 """OrbitScope - API Routes & ML Unit Tests
-Validates all endpoints across /sky, /observations, /detection, /catalog, /planetx, /system,
-and unit tests for FeatureExtractor and AnomalyDetector.
+Root, /system and /planetx endpoints, localization, and the public-deployment rate limit.
 """
 from __future__ import annotations
 
-import io
 from fastapi.testclient import TestClient
-import numpy as np
 import pytest
-from PIL import Image
 
 from app.main import app
-from app.ml.anomaly_detector import AnomalyDetector
-from app.ml.feature_extractor import FeatureExtractor
-from app.models.schemas import (
-    DetectionCandidate,
-    DetectionStatus,
-    Locale,
-    SourceMeasurement,
-)
 
 
 @pytest.fixture(scope="module")
@@ -70,120 +58,9 @@ def test_system_datasources(client: TestClient) -> None:
     payload = res.json()
     assert payload["success"] is True
     assert isinstance(payload["data"], list)
-    assert len(payload["data"]) >= 3
-
-
-# ============================================================================
-# Sky Routes Tests
-# ============================================================================
-
-def test_sky_regions(client: TestClient) -> None:
-    """Test GET /api/v1/sky/regions."""
-    res = client.get("/api/v1/sky/regions")
-    assert res.status_code == 200
-    payload = res.json()
-    assert payload["success"] is True
-    assert len(payload["data"]) > 0
-
-
-def test_sky_observations(client: TestClient) -> None:
-    """Test GET /api/v1/sky/observations cone search."""
-    res = client.get("/api/v1/sky/observations?ra=83.822&dec=-5.391&radius=1.5")
-    assert res.status_code == 200
-    payload = res.json()
-    assert payload["success"] is True
-    assert isinstance(payload["data"], list)
-
-
-def test_sky_objects(client: TestClient, monkeypatch) -> None:
-    """Test GET /api/v1/sky/objects cone search via JPL SB Ident (stubbed, offline)."""
-    import app.services.jpl_catalog as jc
-
-    async def fake_field(ra, dec, radius_deg, when=None, vmag_lim=21.0):
-        return {"objects": [{"name": "4 Vesta (A807 FA)", "kind": "asteroid", "ra": ra, "dec": dec}]}
-
-    monkeypatch.setattr(jc, "known_in_field", fake_field)
-    res = client.get("/api/v1/sky/objects?ra=83.9&dec=-5.3&radius=1.0")
-    assert res.status_code == 200
-    payload = res.json()
-    assert payload["success"] is True
-    assert payload["data"][0]["name"] == "4 Vesta (A807 FA)"
-    assert payload["data"][0]["is_simulated"] is False
-
-
-# ============================================================================
-# Observations Routes Tests
-# ============================================================================
-
-def test_observations_list_and_pagination(client: TestClient) -> None:
-    """Test GET /api/v1/observations/."""
-    res = client.get("/api/v1/observations/?limit=5&offset=0")
-    assert res.status_code == 200
-    payload = res.json()
-    assert payload["success"] is True
-    assert "items" in payload["data"]
-    assert "total" in payload["data"]
-
-
-def test_observation_image_rendering(client: TestClient) -> None:
-    """Test GET /api/v1/observations/{id}/image streams valid PNG image."""
-    res = client.get("/api/v1/observations/SPHEREX_SIM_001/image")
-    assert res.status_code == 200
-    assert res.headers["content-type"] == "image/png"
-    # Verify PNG header
-    img = Image.open(io.BytesIO(res.content))
-    assert img.size[0] > 0 and img.size[1] > 0
-
-
-def test_observations_compare(client: TestClient) -> None:
-    """Test POST /api/v1/observations/compare."""
-    req = {
-        "observation_1_id": "SPHEREX_SIM_001",
-        "observation_2_id": "SPHEREX_SIM_002",
-        "locale": "en",
-    }
-    res = client.post("/api/v1/observations/compare", json=req)
-    assert res.status_code == 200
-    payload = res.json()
-    assert payload["success"] is True
-    assert len(payload["data"]["observation_ids"]) == 2
-
-
-# ============================================================================
-# Detection Routes Tests
-# ============================================================================
-
-def test_detection_run_and_candidates(client: TestClient) -> None:
-    """Test POST /api/v1/detection/run and GET /api/v1/detection/candidates."""
-    run_req = {
-        "observation_ids": ["SPHEREX_SIM_001", "SPHEREX_SIM_002"],
-        "threshold_sigma": 4.5,
-        "run_ml_scoring": True,
-        "locale": "en",
-    }
-    res = client.post("/api/v1/detection/run", json=run_req)
-    assert res.status_code == 200
-    run_payload = res.json()
-    assert run_payload["success"] is True
-    assert run_payload["data"]["candidates_found"] >= 1
-
-    # List candidates
-    list_res = client.get("/api/v1/detection/candidates")
-    assert list_res.status_code == 200
-    list_data = list_res.json()
-    assert list_data["success"] is True
-    assert len(list_data["data"]["items"]) >= 1
-
-    # Get single candidate detail
-    candidate_id = list_data["data"]["items"][0]["id"]
-    detail_res = client.get(f"/api/v1/detection/candidates/{candidate_id}")
-    assert detail_res.status_code == 200
-    assert detail_res.json()["data"]["id"] == candidate_id
-
-    # Crossmatch candidate
-    cm_res = client.post(f"/api/v1/detection/crossmatch/{candidate_id}?radius_arcsec=60")
-    assert cm_res.status_code == 200
-    assert cm_res.json()["success"] is True
+    names = " ".join(d.get("name", "") for d in payload["data"])
+    assert "Gaia" in names and "IRSA" in names and "SB Ident" in names
+    assert not any(d.get("is_simulated") for d in payload["data"])
 
 
 # ============================================================================
@@ -206,7 +83,7 @@ def test_planetx_evidence(client: TestClient) -> None:
     assert payload["success"] is True
     assert len(payload["data"]["evidence"]) >= 5
     assert len(payload["data"]["predictions"]) >= 5
-    assert payload["is_simulated"] is True
+    assert payload["is_simulated"] is False  # literature, not invented data
 
 
 def test_planetx_tnos(client: TestClient, monkeypatch) -> None:
@@ -240,90 +117,6 @@ def test_planetx_regions(client: TestClient) -> None:
 
 
 # ============================================================================
-# ML Module Tests: FeatureExtractor & AnomalyDetector
-# ============================================================================
-
-def test_feature_extractor() -> None:
-    """Test FeatureExtractor with candidate objects."""
-    extractor = FeatureExtractor()
-    assert len(extractor.FEATURE_NAMES) == 12
-    assert extractor.get_feature_names() == extractor.FEATURE_NAMES
-
-    # Candidate with measurements
-    meas1 = SourceMeasurement(
-        x=10.0, y=12.0, ra=83.5, dec=-5.0, flux=150.0, peak=200.0, fwhm=3.2, roundness=0.9, sharpness=0.6, snr=12.0
-    )
-    meas2 = SourceMeasurement(
-        x=14.0, y=16.0, ra=83.502, dec=-5.001, flux=140.0, peak=190.0, fwhm=3.1, roundness=0.88, sharpness=0.58, snr=11.5
-    )
-    candidate = DetectionCandidate(
-        id="CAND_01",
-        status=DetectionStatus.CANDIDATE,
-        ra=83.501,
-        dec=-5.0005,
-        displacement_arcsec=9.5,
-        motion_ra=1.2,
-        motion_dec=-0.8,
-        snr=15.0,
-        magnitude_estimate=20.2,
-        measurements=[meas1, meas2],
-    )
-
-    vec = extractor.extract_features(candidate)
-    assert isinstance(vec, np.ndarray)
-    assert vec.shape == (12,)
-    assert not np.isnan(vec).any()
-    assert vec[0] == 9.5  # displacement
-    assert vec[1] == 15.0  # snr
-
-    batch = extractor.extract_batch([candidate, candidate])
-    assert batch.shape == (2, 12)
-
-
-def test_anomaly_detector_scoring() -> None:
-    """Test AnomalyDetector scoring and anomaly ranking."""
-    extractor = FeatureExtractor()
-    detector = AnomalyDetector(contamination=0.15, n_estimators=50)
-
-    # Normal population
-    candidates: list[DetectionCandidate] = []
-    for i in range(15):
-        candidates.append(
-            DetectionCandidate(
-                id=f"NORM_{i}",
-                status=DetectionStatus.CANDIDATE,
-                ra=80.0 + i * 0.01,
-                dec=20.0 + i * 0.01,
-                displacement_arcsec=2.0 + np.random.uniform(-0.2, 0.2),
-                motion_ra=0.1,
-                motion_dec=0.1,
-                snr=8.0,
-                magnitude_estimate=21.0,
-            )
-        )
-
-    # Strong outlier candidate
-    outlier = DetectionCandidate(
-        id="OUTLIER_01",
-        status=DetectionStatus.CANDIDATE,
-        ra=80.5,
-        dec=20.5,
-        displacement_arcsec=35.0,  # Fast moving
-        motion_ra=15.0,
-        motion_dec=-12.0,
-        snr=45.0,
-        magnitude_estimate=17.0,
-    )
-    candidates.append(outlier)
-
-    scored = detector.score_candidates(candidates, extractor)
-    assert len(scored) == 16
-    for c in scored:
-        assert c.anomaly_score is not None
-        assert 0.0 <= c.anomaly_score <= 1.0
-
-
-# ============================================================================
 # i18n Localization Tests
 # ============================================================================
 
@@ -342,3 +135,32 @@ def test_i18n_responses(client: TestClient) -> None:
     res_ev_az = client.get("/api/v1/planetx/evidence?locale=az")
     assert res_ev_az.status_code == 200
     assert "elmi" in res_ev_az.json()["message"].lower()
+
+
+def test_rate_limit_only_on_expensive_endpoints() -> None:
+    """Expensive requests get 429 (with CORS headers) after the limit; cheap ones never do."""
+    from starlette.applications import Starlette
+    from starlette.responses import PlainTextResponse
+    from starlette.routing import Route
+
+    from app.core.rate_limit import RateLimitMiddleware, is_limited
+
+    assert is_limited("GET", "/api/v1/spherex/blink.gif") and is_limited("POST", "/api/v1/jobs")
+    assert not is_limited("GET", "/api/v1/jobs/abc") and not is_limited("GET", "/api/v1/spherex/status")
+
+    async def ok(request):
+        return PlainTextResponse("ok")
+
+    mini = Starlette(routes=[Route("/api/v1/spherex/blink", ok), Route("/api/v1/spherex/status", ok)])
+    mini.add_middleware(RateLimitMiddleware, per_minute=2)
+    with TestClient(mini) as c:
+        assert [c.get("/api/v1/spherex/blink").status_code for _ in range(3)] == [200, 200, 429]
+        r = c.get("/api/v1/spherex/blink", params={"locale": "az"})
+        assert r.status_code == 429 and "saniyə" in r.json()["detail"] and int(r.headers["Retry-After"]) >= 1
+        assert all(c.get("/api/v1/spherex/status").status_code == 200 for _ in range(5))
+
+
+def test_legacy_simulated_endpoints_are_gone(client: TestClient) -> None:
+    for path in ("/api/v1/sky/regions", "/api/v1/observations", "/api/v1/detection/candidates"):
+        assert client.get(path).status_code == 404
+    assert "simulated" in client.get("/").json()["data"]

@@ -1,68 +1,44 @@
-# OrbitScope — Known Limitations & Future Development
+# OrbitScope — Known Limitations and Future Work
 
-## Known Limitations
+## Scientific limitations
 
-### Data Availability
+1. **Bright, saturated stars and astrometry.** Barnard's Star, RW Aurigae and R Draconis saturate the SPHEREx detectors in most bands.
+   - They are shown in Blink, with the cores filled for display.
+   - They are excluded from the proper-motion measurement, because a saturated centroid is not reliable.
+   - Their photometry points are returned with `flagged: true`.
+2. **Faint asteroids.** The single-exposure search reliably recovers objects to roughly V ≈ 15–16 in the near-infrared bands.
+   - 626 Notburga (V = 13.5) is recovered.
+   - Dworetsky (V ≈ 17.2) in the same field is not.
+3. **Very slow movers (Planet Nine class).** Asteroid linking works within one ~7-minute visit plus joins inside one survey pass.
+   - An object moving a few arcseconds per day is not linked.
+   - Proper-motion search across passes only follows sources detected in every pass.
+   - A distant planet would need a dedicated multi-pass "shift-and-stack" search.
+4. **Pixel scale.** SPHEREx pixels are 6.2″. Astrometric precision comes from centroiding many photons (a noise floor of a few tenths of a pixel), not from resolution. Crowded fields blend sources.
+5. **Wavelength-dependent appearance.** The wavelength of a source changes between exposures, because each exposure puts it on a different part of the LVF filter.
+   - The detection noise model absorbs this.
+   - Strongly variable spectra (e.g. emission-line objects) can still leave residuals.
+6. **Planet Nine clustering test.** The Rayleigh test on 20 extreme TNOs ignores survey selection bias. A significant p-value is consistent with the hypothesis but is not evidence of the planet.
 
-1. **SPHEREx Public Data:** The availability of SPHEREx observation images suitable for multi-epoch comparison depends on the mission's data release schedule. OrbitScope provides a demo mode with clearly labeled simulated data when real observations are not accessible.
+## Data and service limitations
 
-2. **Temporal Coverage:** Moving object detection requires at least two observations of the same sky region at different times. Not all regions may have sufficient multi-epoch coverage in early data releases.
+- **SPHEREx coverage.** Coverage grows with each survey pass. Some fields have only one pass; a proper-motion search there returns no candidates, because it needs at least two epochs.
+- **External services.** IRSA, JPL, ESA and CDS occasionally return 5xx or time out.
+  - OrbitScope retries, shows an explanation and never substitutes invented data.
+  - The five challenge targets resolve offline.
+  - `scripts/prewarm.py` caches their images in advance.
+- **First view of a new field** takes 30–90 s while cutouts download. Background jobs show progress and can be cancelled.
 
-3. **Image Resolution:** SPHEREx's angular resolution (~6.2 arcsec) is optimized for its spectral survey mission. Fine-resolution astrometry comparable to optical surveys is not expected.
+## Infrastructure limitations
 
-### Detection Pipeline
+- **Single process.** Jobs and rate-limit counters are in memory, which is correct for one backend process. Running several replicas would need Redis or similar.
+- **No user accounts.** Candidate reviews are shared by everyone using the instance. A public deployment that accepts reviews from strangers would need authentication.
+- **Minor Planet Center.** Candidates export as CSV, but reporting requires the team's own MPC observatory code and follow-up observations.
 
-4. **False Positive Rate:** Image artifacts, cosmic rays, and imperfect alignment can produce false detections. The current filtering pipeline reduces but cannot eliminate all false positives.
+## Future work
 
-5. **Slow-Moving Objects:** Very distant objects (e.g., hypothetical Planet Nine) move extremely slowly across the sky. Detecting such objects requires long time baselines and sub-arcsecond precision that may exceed SPHEREx capabilities alone.
-
-6. **PSF Variations:** Point Spread Function variations across the detector and between epochs can produce subtraction residuals that mimic real sources.
-
-### Machine Learning
-
-7. **Unsupervised Only:** Without labeled training data from real detections, the ML module operates in unsupervised mode (Isolation Forest). Results should be treated as candidate ranking, not classification.
-
-8. **Feature Engineering:** The current feature set is designed for general moving object detection. Specialized features for specific object types (e.g., comets, TNOs) could improve detection.
-
-### Infrastructure
-
-9. **Single-User Application:** The current implementation is designed for local single-user deployment. Multi-user support would require authentication and session management.
-
-10. **No Persistent Database:** The current version uses in-memory storage and caching. A persistent database would be needed for production deployment.
-
-## Future Development Recommendations
-
-### Short-Term (Next Release)
-
-- [ ] Integrate additional SPHEREx data products as they become available
-- [ ] Add persistent SQLite database for candidate storage
-- [ ] Implement proper FITS image viewer in the frontend
-- [ ] Add export functionality for analysis reports (PDF, CSV)
-- [ ] Improve coordinate input with common-name resolution (e.g., "Orion Nebula")
-- [ ] Add unit tests for all pipeline stages
-
-### Medium-Term
-
-- [ ] Multi-band analysis using SPHEREx's spectral channels
-- [ ] Proper motion estimation with least-squares fitting
-- [ ] Integration with additional catalogs (MPC, Gaia, 2MASS)
-- [ ] Supervised ML classification when labeled data becomes available
-- [ ] Real-time notification system for interesting candidates
-- [ ] Collaborative features (share analyses, annotations)
-
-### Long-Term
-
-- [ ] GPU-accelerated image processing for large surveys
-- [ ] Deep learning-based source detection
-- [ ] Automated orbit determination for confirmed moving objects
-- [ ] Integration with telescope observation scheduling
-- [ ] Cloud deployment for team access
-- [ ] Mobile-optimized interface
-
-## Contributing
-
-Contributions are welcome. When contributing scientific processing code:
-- Document the method and reference publication
-- Include test cases with known expected results
-- Clearly label any simulated test data
-- Preserve data provenance throughout the pipeline
+- [ ] Shift-and-stack search across passes, for slow outer-Solar-System objects.
+- [ ] Forced photometry for saturated stars, using the PSF wings.
+- [ ] Aladin Lite panel with SPHEREx footprints next to the cutout viewer.
+- [ ] Wavelength filter in Blink (choose a band range, e.g. 3–3.5 µm for CH₄).
+- [ ] Automatic re-check of saved candidates when a new SPHEREx release appears.
+- [ ] Frontend unit and end-to-end tests (Vitest / Playwright).

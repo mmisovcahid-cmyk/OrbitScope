@@ -7,6 +7,9 @@ services:
     restart: unless-stopped
     environment:
       SPHEREX_CACHE_MAX_MB: "4000"
+      DEBUG: "false"
+      TRUST_PROXY_HEADERS: "true"     # client IP for the rate limit comes from nginx
+      RATE_LIMIT_PER_MINUTE: "60"
     volumes:
       - orbitscope-data:/data   # SPHEREx cutout cache + candidate database
     expose:

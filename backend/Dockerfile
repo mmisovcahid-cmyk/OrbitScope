@@ -1,14 +1,9 @@
-# OrbitScope backend (FastAPI + astropy/photutils)
+# OrbitScope backend (FastAPI + astropy/scipy)
 FROM python:3.10-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
-
-# libglib2.0-0 is needed by opencv-python-headless
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends libglib2.0-0 \
-    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY requirements.txt .
@@ -16,6 +11,7 @@ RUN pip install -r requirements.txt
 
 COPY app ./app
 COPY run.py .
+COPY scripts ./scripts
 
 # Persistent data lives in /data (mount a volume there): SPHEREx cutout cache + candidate DB.
 ENV SPHEREX_CACHE_DIR=/data/cache \

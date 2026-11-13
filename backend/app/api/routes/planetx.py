@@ -265,7 +265,8 @@ SEARCH_REGIONS: list[dict[str, Any]] = [
         "constellations": ["Cetus", "Taurus", "Eridanus", "Orion"],
         "description": "Highest probability aphelion sector where Planet Nine would move most slowly (~1 km/s) and exhibit the longest observational persistence.",
         "description_az": "Ən yüksək ehtimallı afeli sektoru; burada Doqquzuncu Planet ən yavaş sürətlə (~1 km/san) hərəkət edir və ən uzun müşahidə qalıcılığına malikdir.",
-        "is_simulated": True,
+        "is_simulated": False,
+        "data_source": "published literature",
     },
     {
         "id": "p9-southern-flank",
@@ -281,7 +282,8 @@ SEARCH_REGIONS: list[dict[str, Any]] = [
         "constellations": ["Sculptor", "Cetus", "Fornax"],
         "description": "Secondary corridor corresponding to southern ecliptic excursions in an inclined orbit.",
         "description_az": "Meyilli orbitdə cənub ekliptika meyllərinə uyğun gələn ikinci dərəcəli axtarış dəhlizi.",
-        "is_simulated": True,
+        "is_simulated": False,
+        "data_source": "published literature",
     },
     {
         "id": "p9-northern-node",
@@ -297,7 +299,8 @@ SEARCH_REGIONS: list[dict[str, Any]] = [
         "constellations": ["Gemini", "Auriga", "Taurus"],
         "description": "Ascending node region where the orbit crosses into northern galactic latitudes.",
         "description_az": "Orbitin şimal qalaktik enliklərinə keçdiyi qalxan düyün zonası.",
-        "is_simulated": True,
+        "is_simulated": False,
+        "data_source": "published literature",
     },
 ]
 
@@ -320,7 +323,8 @@ async def get_planetx_evidence(
         "disclaimer_az": "Aktiv tədqiqat mərhələsində olan elmi hipotezdir. Doqquzuncu Planet hələ birbaşa təsvir edilməyib və ya təsdiqlənməyib.",
         "evidence": EVIDENCE_LIST,
         "predictions": PREDICTIONS_LIST,
-        "is_simulated": True,
+        "is_simulated": False,
+        "data_source": "published literature",
     }
 
     return ApiResponse(
@@ -328,7 +332,7 @@ async def get_planetx_evidence(
         data=payload,
         message=_get_msg(locale, "evidence_success"),
         locale=locale,
-        is_simulated=True,
+        is_simulated=False,
     )
 
 
@@ -382,5 +386,5 @@ async def get_planetx_regions(
         data=SEARCH_REGIONS,
         message=_get_msg(locale, "regions_success"),
         locale=locale,
-        is_simulated=True,
+        is_simulated=False,
     )

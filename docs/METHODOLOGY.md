@@ -1,208 +1,118 @@
 # OrbitScope — Scientific Methodology
 
-## 1. Overview
+OrbitScope works only on real public data. Its sources are SPHEREx Level-2 images from NASA/IPAC IRSA, reference catalogs (Gaia DR3, CatWISE2020) and NASA/JPL small-body services. No page substitutes simulated values when a service is unavailable: the user sees an explanation instead (HTTP 502). Every API endpoint and service is listed in [DATA_SOURCES.md](DATA_SOURCES.md).
 
-OrbitScope implements a multi-stage astronomical detection pipeline designed to identify potential moving celestial sources by comparing observations of the same sky region taken at different times (epochs).
+Detected objects are **candidates**, not discoveries. Planet Nine is presented as an unconfirmed hypothesis.
 
-The methodology follows established practices in time-domain astronomy and transient detection, adapted for the SPHEREx mission's infrared survey data.
+## 1. SPHEREx data access
 
-## 2. Data Sources
+| Step | Method |
+|---|---|
+| Which exposures cover a position | IRSA TAP: `CONTAINS(POINT(ra,dec), s_region)` on `spherex.obscore`. Collections are matched by the `spherex` prefix, so new data releases appear without code changes. |
+| File location | IRSA datalink gives the Level-2 FITS URL of each exposure. |
+| Pixels | IBE cutout service (`?center=&size=`). Only `IMAGE`, `FLAGS`, `VARIANCE`, `ZODI` and `WCS-WAVE` are kept; the ~5 MB PSF cube is dropped. Cutouts are cached on disk with LRU pruning. |
+| Wavelength | SPHEREx uses linear variable filters (LVF): the wavelength changes across each detector. The wavelength of any pixel is read from the `WCS-WAVE` (-TAB) lookup table. Detectors D1–D6 cover 0.75–5.0 µm in 102 spectral channels. |
 
-### 2.1 NASA SPHEREx
+## 2. Image preparation (`spherex_archive.py`)
 
-SPHEREx (Spectro-Photometer for the History of the Universe, Epoch of Reionization, and Ices Explorer) is a NASA Medium Explorer mission that performs an all-sky spectral survey in 102 spectral bands spanning 0.75–5.0 micrometers.
+1. **Background:**
+   - Subtract the `ZODI` model (zodiacal light).
+   - Subtract a robust local sky level.
+2. **Masking:** pixels with problem `FLAGS` bits are masked.
+3. **Reprojection:** each cutout is resampled onto a common north-up gnomonic (TAN) grid.
+   - Uses the full SIP distortion WCS with `scipy.ndimage.map_coordinates`.
+   - All frames of one target share the grid, so a static star stays on the same pixel.
+4. **Coadd per survey pass:**
+   - Frames more than 30 days apart are separate passes.
+   - Within a pass, frames are combined with inverse-variance weights.
+   - A pixel is masked when fewer than half of the exposures are valid there.
+5. **Saturated cores:** the cores of very bright stars are saturated (OVERFLOW). They are filled from the surroundings for display only and are never used for measurements.
+6. **High proper-motion targets:** the position is propagated from the catalog epoch to each SPHEREx epoch, so the target marker follows the star.
+7. **Delivery:** frames are sent to the browser as float32. Stretch, colour map, difference and motion-colour views are computed client-side.
 
-**Key characteristics:**
-- All-sky coverage over a 2-year nominal mission
-- Multiple observation epochs for each sky position
-- Spectral resolution R ~ 41–135
-- Angular resolution ~ 6.2 arcseconds
+## 3. Spectrum and light curve (`photometry`)
 
-**Data access:** Via NASA/IPAC Infrared Science Archive (IRSA) TAP service.
+- **Exposure selection:** up to 96 exposures, spread over all detectors and over time.
+- **Measurement:** aperture photometry with local-annulus background subtraction and an error from `VARIANCE`.
+- **Wavelength per point:** the LVF wavelength at the target pixel. One measurement set therefore gives both a **spectrum** (flux vs. wavelength) and a **light curve** (flux vs. time).
+- **Flagged points:** saturated or mostly masked apertures are returned with `flagged: true` instead of being dropped silently.
+- **Real-data result:** the T dwarf ε Indi B shows the expected CH₄ absorption near 3.3 µm.
 
-**Limitation:** SPHEREx data availability depends on the mission's public release schedule. OrbitScope provides a graceful fallback to clearly labeled simulated data when real observations are not yet accessible.
+## 4. Moving-object search (`pipeline/moving_objects.py`)
 
-### 2.2 JPL Small-Body Database (SBDB)
+### 4.1 Asteroids and comets (`search=asteroids`)
 
-Provides orbital elements, physical parameters, and close-approach data for known asteroids and comets.
+**Input:** the individual exposures of one survey pass.
+- SPHEREx observes in visits of about 4 exposures within about 7 minutes; `select_sequences` keeps those visits intact.
+- Paired detectors D1/D4, D2/D5 and D3/D6 expose simultaneously.
 
-**API endpoint:** `https://ssd-api.jpl.nasa.gov/sbdb.api`
+**Steps:**
+1. **Static-sky template:** the median image per detector. It is subtracted from each exposure.
+2. **Noise model:** `σ² + (0.15 · template)²`.
+   - The second term absorbs brightness changes of stars caused by the LVF wavelength shift between exposures.
+   - Residuals are smoothed with a 1-px Gaussian (matched filter); peaks above 5σ are detections.
+3. **Noisy-frame rejection:** frames whose residual noise exceeds 3× the detector median are skipped.
+4. **Linking within a visit:**
+   - Detections within `VISIT_WINDOW_DAYS = 0.01` are linked by union-find into straight-line tracklets.
+   - Each tracklet needs at least 3 detections and an RMS of at most 0.8 px.
+5. **Joining across visits:** tracklets are joined when a common linear motion fits all of them (`MAX_JOIN_RMS_PX = 1.5`).
+6. **Stationary rejection:** detector persistence and variable stars produce residuals at a fixed position.
+   - `recurrence()` checks whether the same position is significant in clearly different visits (gap > 0.05 d, threshold max(4, 0.3·mean z)).
+   - A "parked" rule catches zero-motion tracks.
+   - Both cases are classified `stationary_transient`, not movers.
+7. **Known objects:** NASA/JPL SB Ident is queried once per visit cluster, and positions are extrapolated linearly with the returned rates.
+   - A track counts as recovering a known object only if both position (≤ 5 px ≈ 30″) and rate agree.
+   - Otherwise it stays an `unknown_mover` candidate.
 
-### 2.3 JPL Horizons
+**Validation on real data:** 626 Notburga (V = 13.5) was recovered with 8 detections, 1.6″ from the JPL position and a rate of 58″/h. Static fields produce no `unknown_mover`.
 
-Provides precise ephemeris computations for solar system bodies.
+### 4.2 Proper motion (`search=proper_motion`)
 
-**API endpoint:** `https://ssd.jpl.nasa.gov/api/horizons.api`
+**Input:** one stack per survey pass, typically about 6 months apart.
 
-## 3. Detection Pipeline
+**Steps:**
+1. **Source selection:** isolated, unsaturated sources with S/N ≥ 10 are centroided in every epoch with a re-centred Gaussian fit (`refine_centroid`).
+2. **Registration offset:** the global frame-to-frame offset is measured on all stars and removed.
+3. **Noise floor:** the scatter of the static stars gives the astrometric noise floor. Each source adds an error term of 1.5/SNR px.
+4. **Classification:**
+   - A source is reported as moving when its shift is above 5σ and at least 0.25 px.
+   - It is reported as variable when its flux ratio between epochs is at least 1.6.
+5. **Catalog check:** Gaia DR3 and CatWISE2020 positions are propagated to the SPHEREx epoch.
+   - A catalog match must agree in both position and proper-motion vector.
+   - The match radius grows for fast catalog movers.
 
-### 3.1 Image Preprocessing
+**Validation on real data:**
+- ε Indi B: 4.1″/yr at PA ≈ 123°, matched to Gaia.
+- WISE 0855−0714: 7.9″/yr at PA 280°, matched to CatWISE.
 
-**Background estimation:**
-- Uses sigma-clipped statistics to estimate the background level
-- Employs a mesh-based background model (similar to SExtractor)
-- Subtracts background to create a flat-field image
+Saturated stars are excluded from astrometry by design: Barnard's Star, RW Aur and R Dra. They are still shown in Blink.
 
-**Noise estimation:**
-- Computes local RMS noise maps
-- Used to set detection thresholds
+### 4.3 Candidate handling
 
-**Normalization:**
-- Flux normalization between epochs
-- Zero-point calibration when photometric information is available
+- **Storage:** runs and candidates are stored in SQLite (`candidate_store.py`) with metrics, recurrence data and catalog matches.
+- **Review:** a human marks each candidate *real / artifact / unsure*.
+- **Export:** each candidate's astrometry can be exported as CSV, the starting point for a Minor Planet Center report (submission requires the team's own MPC registration).
 
-### 3.2 Astrometric Alignment
+## 5. Live JPL catalog (`jpl_catalog.py`)
 
-**WCS-based alignment:**
-- Uses World Coordinate System (WCS) information from FITS headers
-- Reprojects images onto a common coordinate grid using astropy.wcs
+- **SBDB:** orbit, physical parameters, discovery circumstances and close approaches. An ambiguous name returns a list of matches.
+- **Horizons:** observer ephemeris.
+  - Asteroids are addressed by `DES=<spkid>;`, comets by `DES=<des>;CAP;`, and planets by their major-body ID.
+  - The output is CSV with angles in degrees.
+- **SB Ident:** known small bodies in a field at a given time, for the Catalog field search and the detection cross-check.
 
-**Image registration:**
-- Phase-correlation-based registration for subpixel alignment
-- Accounts for rotation, translation, and scale differences
+## 6. Planet Nine test (`etno.py`)
 
-**Quality metrics:**
-- Alignment residuals
-- Number of matched reference sources
+- **Hypothesis being tested:** extreme TNOs (a ≥ 150 AU, q ≥ 30 AU) cluster in orbital orientation (Batygin & Brown 2016).
+- **Data:** OrbitScope fetches the current orbits of 20 such objects live from SBDB.
+- **Statistic:** a Rayleigh test on the longitude of perihelion ϖ = Ω + ω, and separately on Ω and ω. A small p-value means the angles are not uniformly distributed.
+- **Result on live orbits:** mean ϖ ≈ 68°, p ≈ 5×10⁻⁴.
+- **What it does not show:** the test does not address the observational selection bias discussed in the literature (e.g. Shankman et al. 2017, Napier et al. 2021), and it is not evidence for the planet itself. Search corridors and evidence cards on the page are taken from published papers and labelled as literature.
 
-### 3.3 Source Detection
+## 7. Reproducibility
 
-**Method: DAOStarFinder (Photutils)**
-- Implements the DAOFIND algorithm (Stetson 1987)
-- Detects point sources above a configurable significance threshold
-- Parameters: FWHM, detection threshold (in sigma units)
-
-**Measurements per source:**
-- Centroid position (x, y and RA, Dec)
-- Peak flux
-- Integrated flux
-- FWHM
-- Roundness
-- Sharpness
-- Signal-to-noise ratio
-
-### 3.4 Image Subtraction
-
-**Direct subtraction:**
-- Pixel-by-pixel difference of aligned images
-- Applied after background subtraction and normalization
-
-**Kernel-matched subtraction:**
-- Convolves one image to match the PSF of the other
-- Reduces false positives from PSF variations
-
-**Residual analysis:**
-- Identifies significant residuals above noise threshold
-- Filters based on morphology (real sources vs. artifacts)
-
-### 3.5 Multi-Epoch Source Association
-
-**Positional matching:**
-- Cross-matches source catalogs from different epochs
-- Uses configurable matching radius (default: 2× FWHM)
-- Identifies unmatched sources as potential movers
-
-**Motion analysis:**
-- Computes positional displacement between epochs
-- Estimates proper motion rate
-- Verifies motion consistency with expected apparent rates for solar system objects
-
-**Stationary source filtering:**
-- Sources matched within astrometric uncertainty are classified as stationary
-- Requires displacement significantly exceeding alignment uncertainty
-
-### 3.6 Candidate Generation
-
-Each moving candidate receives:
-- Unique identifier
-- Detection coordinates (both epochs)
-- Displacement vector
-- Time baseline
-- Signal-to-noise in each epoch
-- Morphological parameters
-- Detection method provenance
-
-### 3.7 Catalog Cross-Matching
-
-**JPL SBDB search:**
-- Cone search around each candidate position
-- Search radius accounts for positional uncertainty + orbital motion
-- Matches against known asteroids, comets, and other small bodies
-
-**Classification logic:**
-| Match Result | Classification |
-|-------------|---------------|
-| Exact match with known object | KNOWN_OBJECT |
-| Close match, needs verification | CANDIDATE |
-| No match in catalog | UNMATCHED_CANDIDATE |
-| Morphology suggests artifact | POSSIBLE_ARTIFACT |
-| Ambiguous detection | NEEDS_VERIFICATION |
-
-### 3.8 Machine Learning Anomaly Detection
-
-**Method: Isolation Forest (unsupervised)**
-
-**Features:**
-- Positional displacement
-- Signal-to-noise ratio
-- Flux ratio between epochs
-- FWHM ratio
-- Roundness deviation
-- Detection consistency
-- Catalog matching distance
-
-**Purpose:**
-- Rank candidates by anomaly score
-- Prioritize unusual objects for manual inspection
-- NOT used as a discovery tool
-
-**Limitation:** Without labeled training data, the ML module operates in an exploratory mode. Results should be interpreted as prioritization, not classification.
-
-## 4. Uncertainty and Limitations
-
-### 4.1 Known Limitations
-
-1. **SPHEREx temporal coverage:** Moving object detection requires multiple observation epochs of the same region. The availability of suitable multi-epoch data depends on the mission's survey strategy and data release schedule.
-
-2. **Angular resolution:** SPHEREx's ~6.2 arcsecond resolution limits detection of slow-moving or distant objects.
-
-3. **False positive sources:** Image artifacts, cosmic rays, and imperfect subtraction can produce false detections. The pipeline includes filters, but manual verification is recommended.
-
-4. **Catalog completeness:** JPL SBDB is extensive but not complete. An unmatched candidate may be a known object not yet in the database.
-
-5. **Simulated data:** When real SPHEREx observations are unavailable, the system generates synthetic data for demonstration purposes. This data is always clearly labeled.
-
-### 4.2 Uncertainty Quantification
-
-- Positional uncertainty from centroid fitting
-- Photometric uncertainty from noise statistics
-- Association confidence from matching metrics
-- Classification confidence from cross-match scoring
-
-## 5. Planet Nine Hypothesis Context
-
-The Planet X module presents published scientific evidence regarding the hypothetical Planet Nine.
-
-**Key points:**
-- Planet Nine has NOT been directly detected or confirmed
-- The hypothesis is based on gravitational evidence from trans-Neptunian objects (TNOs)
-- Published estimated parameters: ~5-10 Earth masses, semi-major axis ~400-800 AU
-- Multiple research groups have published supporting and challenging analyses
-- OrbitScope does NOT claim to discover Planet Nine
-
-**Primary references:**
-- Batygin, K. & Brown, M. E. (2016). "Evidence for a Distant Giant Planet in the Solar System." AJ, 151, 22.
-- Brown, M. E. & Batygin, K. (2021). "The Orbit of Planet Nine." AJ, 162, 219.
-- Trujillo, C. A. & Sheppard, S. S. (2014). "A Sedna-like body with a perihelion of 80 astronomical units." Nature, 507, 471.
-
-## 6. Reproducibility
-
-All processing parameters are recorded in the pipeline results:
-- Detection thresholds
-- Alignment parameters
-- Matching radii
-- ML model parameters
-- Data source versions
-- Processing timestamps
-
-This enables reproduction of any analysis result.
+- **Self-describing results:**
+  - Every blink, photometry and detection response contains the exact IRSA file URLs, observation IDs, detector, epoch and pixel scale.
+  - Detection runs also store all parameters.
+- **Shareable state:** the Blink page URL encodes the full query (`target, ra, dec, fov, det, mode, per, max`).
+- **Tests:** the backend tests include real SPHEREx cutouts (`backend/tests/fixtures`) and synthetic moving-object scenes, and run offline.

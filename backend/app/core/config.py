@@ -25,12 +25,18 @@ class Settings(BaseSettings):
         description="Application semantic version",
     )
     DEBUG: bool = Field(
-        default=True,
+        default=False,
         description="Enable debug mode (hot-reloading, verbose error traces)",
     )
-    DEMO_MODE: bool = Field(
-        default=True,
-        description="Enable simulated astronomical data fallback when NASA APIs are unreachable",
+
+    RATE_LIMIT_PER_MINUTE: int = Field(
+        default=60,
+        ge=0,
+        description="Expensive requests (blink, photometry, detection, catalog) allowed per client per minute; 0 disables",
+    )
+    TRUST_PROXY_HEADERS: bool = Field(
+        default=False,
+        description="Take the client IP from X-Real-IP (enable only behind the bundled nginx proxy)",
     )
 
     # --- Server Configuration ---
@@ -54,23 +60,9 @@ class Settings(BaseSettings):
         default="https://ssd.jpl.nasa.gov/api/horizons.api",
         description="JPL Horizons on-line ephemeris computation API URL",
     )
-    JPL_CAD_URL: str = Field(
-        default="https://ssd-api.jpl.nasa.gov/cad.api",
-        description="JPL Close-Approach Data API URL",
-    )
     IRSA_TAP_URL: str = Field(
         default="https://irsa.ipac.caltech.edu/TAP/sync",
         description="NASA/IPAC Infrared Science Archive TAP synchronous query URL",
-    )
-    IRSA_BASE_URL: str = Field(
-        default="https://irsa.ipac.caltech.edu",
-        description="NASA/IPAC Infrared Science Archive base URL",
-    )
-
-    # --- API Authentication Keys ---
-    NASA_API_KEY: str = Field(
-        default="DEMO_KEY",
-        description="NASA API key for authenticated queries with higher rate limits",
     )
 
     # --- Cache Configuration ---
@@ -85,23 +77,6 @@ class Settings(BaseSettings):
         description="Maximum number of items permitted in each in-memory TTLCache instance",
     )
 
-    # --- Astronomical Processing Pipeline ---
-    MAX_PIPELINE_WORKERS: int = Field(
-        default=4,
-        ge=1,
-        le=32,
-        description="Maximum concurrent worker threads for astronomical image difference pipelines",
-    )
-    DEFAULT_DETECTION_SIGMA: float = Field(
-        default=3.0,
-        gt=0.0,
-        description="Default detection threshold in standard deviations above background noise",
-    )
-    DEFAULT_MATCH_RADIUS_ARCSEC: float = Field(
-        default=5.0,
-        gt=0.0,
-        description="Default cross-match association radius in arcseconds",
-    )
 
     # --- SPHEREx archive (real data) ---
     SPHEREX_CACHE_DIR: str = Field(
