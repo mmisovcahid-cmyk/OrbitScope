@@ -1,0 +1,63 @@
+/* Shared scene effects: Andromeda backdrop, nebula blobs, particles, hero. */
+
+.ps-neb { position: absolute; border-radius: 50%; filter: blur(70px); opacity: 0.55; }
+.ps-neb--a { width: 62vw; height: 52vh; left: -12vw; top: 8vh; background: radial-gradient(circle, rgba(116, 72, 235, 0.38), transparent 66%);
+  animation: ps-neb 42s ease-in-out infinite alternate; }
+.ps-neb--b { width: 52vw; height: 52vh; right: -12vw; bottom: -4vh; background: radial-gradient(circle, rgba(40, 120, 255, 0.3), transparent 66%);
+  animation: ps-neb 58s ease-in-out infinite alternate-reverse; }
+@keyframes ps-neb { from { transform: translate3d(0, 0, 0) scale(1); } to { transform: translate3d(6vw, -5vh, 0) scale(1.18); } }
+
+.ps-particles { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
+
+/* Andromeda */
+.ps-andro { position: absolute; inset: 0; z-index: -3; overflow: hidden; background: radial-gradient(60% 60% at 62% 46%, #151347 0%, #04061f 70%); }
+.ps-andro-zoom { position: absolute; inset: -4%; will-change: transform; transform-origin: 60% 46%; }
+.ps-andro--hero .ps-andro-zoom { transform: scale(calc(1.04 + (var(--p, 0.5) - 0.5) * 2.4)); }
+.ps-andro--finale .ps-andro-zoom { transform: scale(calc(1.4 - var(--p, 0.5) * 0.6)); }
+.ps-andro-img { width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 1.8s ease; }
+.ps-andro-img.is-ready { opacity: 0.95; }
+.ps-andro--hero .ps-andro-img { animation: ps-drift 90s ease-in-out infinite alternate; }
+.ps-scene.is-active .ps-andro--finale .ps-andro-img { animation: ps-pullout 20s cubic-bezier(0.18, 0.6, 0.2, 1) both; }
+@keyframes ps-drift { from { transform: scale(1) translate3d(0, 0, 0); } to { transform: scale(1.09) translate3d(-1.2%, 0.8%, 0); } }
+@keyframes ps-pullout { from { transform: scale(1.55); } to { transform: scale(1); } }
+.ps-andro-shade { position: absolute; inset: 0;
+  background:
+    linear-gradient(180deg, rgba(3, 5, 26, 0.6) 0%, rgba(3, 5, 26, 0.12) 38%, rgba(3, 5, 26, 0.9) 100%),
+    radial-gradient(75% 70% at 28% 52%, rgba(3, 5, 26, 0.7), transparent 72%); }
+.ps-root.is-lite .ps-andro-zoom { transform: none !important; }
+.ps-root.is-lite .ps-andro-img, .ps-root.is-lite .ps-scene.is-active .ps-andro--finale .ps-andro-img { animation: none; }
+.ps-andro-credit { position: absolute; left: var(--ps-pad); bottom: 14px; right: 150px; z-index: 3; font-size: 0.68rem; line-height: 1.4; color: var(--ps-faint); max-width: 56ch; }
+.ps-andro-credit span { color: var(--ps-dim); }
+
+/* ---------- 01 hero ---------- */
+.ps-scene--giris { min-height: 100svh; text-align: center; align-items: center; }
+.ps-hero { display: flex; flex-direction: column; align-items: center; gap: clamp(10px, 2.2svh, 22px); transform: translateY(calc((var(--p, 0.5) - 0.5) * -160px));
+  opacity: calc(1 - (var(--p, 0.5) - 0.5) * 2.2); }
+.ps-root.is-lite .ps-hero { transform: none; opacity: 1; }
+.ps-hero-labels { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.ps-hero-labels .ps-chip { letter-spacing: 0.22em; font-size: 0.7rem; font-weight: 600; }
+.ps-hero-labels .ps-chip:first-child { border-color: rgba(246, 198, 91, 0.6); color: var(--ps-gold); }
+.ps-hero-labels .ps-chip:last-child { border-color: rgba(67, 227, 255, 0.5); color: var(--ps-cyan); }
+.ps-hero-title { font-size: clamp(1.9rem, 9.2vw, 8.4rem); font-weight: 600; letter-spacing: 0.17em; line-height: 1; margin-right: -0.17em; color: #fff; white-space: nowrap;
+  text-shadow: 0 0 40px rgba(139, 108, 255, 0.55), 0 0 90px rgba(67, 227, 255, 0.25); }
+.ps-hero-title span { display: inline-block; opacity: 0; transform: translateY(0.35em) scale(1.12); filter: blur(14px);
+  animation: ps-title-in 1.5s cubic-bezier(0.2, 0.7, 0.2, 1) calc(var(--k) * 80ms + 350ms) forwards; }
+@keyframes ps-title-in { to { opacity: 1; transform: none; filter: blur(0); } }
+.ps-hero-sub { font-size: clamp(1.1rem, 2.6vw, 2rem); font-style: italic; color: var(--ps-lavender); letter-spacing: 0.04em; }
+.ps-hero-text { max-width: 58ch; font-size: clamp(1rem, 1.5vw, 1.25rem); color: var(--ps-ink); opacity: 0.88; text-wrap: balance; }
+.ps-hero-cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 6px; }
+.ps-hero-msg { max-width: 760px; margin-top: clamp(6px, 2svh, 22px); padding: 14px 22px; font-size: 0.86rem; color: var(--ps-dim); text-wrap: balance; }
+.ps-hero-msg b { color: var(--ps-ink); font-weight: 600; }
+.ps-scroll-ind { position: absolute; left: 50%; bottom: 84px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px;
+  font-size: 0.66rem; letter-spacing: 0.3em; text-transform: uppercase; color: var(--ps-dim); z-index: 2; }
+.ps-scroll-ind i { display: block; width: 22px; height: 36px; border-radius: 12px; border: 1.5px solid var(--ps-dim); position: relative; }
+.ps-scroll-ind i::after { content: ''; position: absolute; left: 50%; top: 7px; width: 3px; height: 8px; margin-left: -1.5px; border-radius: 2px; background: var(--ps-cyan);
+  animation: ps-bob 1.8s ease-in-out infinite; }
+.ps-hero-orbits { position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: 0.55; display: grid; place-items: center; }
+.ps-hero-orbits svg { width: min(1500px, 140vw); height: auto; }
+.ps-hero-rays { position: absolute; inset: -20%; z-index: -1; pointer-events: none; opacity: 0.28; mix-blend-mode: screen;
+  background: conic-gradient(from 200deg at 62% 46%, transparent 0deg, rgba(139, 108, 255, 0.5) 8deg, transparent 18deg, rgba(67, 227, 255, 0.35) 40deg, transparent 52deg, rgba(246, 198, 91, 0.3) 78deg, transparent 90deg);
+  animation: ps-spin 220s linear infinite; mask-image: radial-gradient(circle at 62% 46%, #000 0%, transparent 62%); }
+.ps-hero-scope { position: absolute; right: clamp(8px, 4vw, 70px); bottom: 0; width: clamp(150px, 22vw, 330px); z-index: 1; opacity: 0.8; pointer-events: none; }
+@media (max-width: 760px) { .ps-hero-scope { opacity: 0.4; width: 36vw; } .ps-andro-credit { right: var(--ps-pad); bottom: 60px; } .ps-scroll-ind { bottom: 150px; } .ps-scroll-ind span { display: none; } }
+@media (max-height: 560px) { .ps-scroll-ind, .ps-hero-msg { display: none; } .ps-hero-title { font-size: clamp(2rem, 9vw, 4.4rem); } }

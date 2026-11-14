@@ -28,6 +28,7 @@ Every page uses **real public data**: NASA/IPAC IRSA, NASA/JPL and ESA. No API k
 | **Catalog** (`/catalog`) | Live JPL SBDB lookup (orbit, physical data, close approaches), Horizons ephemeris, known objects in a field (SB Ident). |
 | **Planet X** (`/planetx`) | Live Rayleigh test for orbital clustering of extreme TNOs, on **every** qualifying object in JPL SBDB (59) and on the 20-object literature sample, side by side. Published evidence and search corridors are labelled as literature. |
 | **Embed** (`/embed?...`) | iframe-friendly Blink for other websites. |
+| **Presentation** (`/presentation`) | Azerbaijani, scroll-based story of the project with a timed ~5 minute tour; Raspberry Pi kiosk friendly (`?kiosk=1`). See [docs/PRESENTATION.md](docs/PRESENTATION.md). |
 
 The interface is bilingual (English / Azərbaycan dili). The URL holds the full query, so every view can be shared or embedded:
 

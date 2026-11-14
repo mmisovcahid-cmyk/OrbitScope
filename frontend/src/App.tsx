@@ -12,6 +12,7 @@ const ComparisonPage = lazy(() => import('./pages/ComparisonPage'));
 const PlanetXPage = lazy(() => import('./pages/PlanetXPage'));
 const CatalogPage = lazy(() => import('./pages/CatalogPage'));
 const AboutPage = lazy(() => import('./pages/AboutPage'));
+const PresentationPage = lazy(() => import('./presentation/PresentationPage'));
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
       <Suspense fallback={<LoadingSpinner />}>
         <Routes>
           <Route path="/embed" element={<EmbedPage />} />
+          <Route path="/presentation" element={<PresentationPage />} />
           <Route element={<Layout />}>
             <Route path="/" element={<BlinkPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
