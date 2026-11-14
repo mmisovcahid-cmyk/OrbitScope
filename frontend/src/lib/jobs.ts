@@ -2,7 +2,7 @@
 import api from '../services/api';
 import i18n from '../i18n';
 
-export type JobKind = 'blink' | 'detect' | 'photometry';
+export type JobKind = 'blink' | 'detect' | 'photometry' | 'neossat_blink';
 
 export interface JobProgress {
   id: string; kind: JobKind; status: 'queued' | 'running' | 'done' | 'error' | 'cancelled';

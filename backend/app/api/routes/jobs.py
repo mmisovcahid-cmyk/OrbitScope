@@ -1,7 +1,7 @@
 """
 OrbitScope API - background jobs
 ================================
-POST   /api/v1/jobs              {"kind": "blink"|"detect"|"photometry", "params": {...}, "locale": "en"}
+POST   /api/v1/jobs              {"kind": "blink"|"detect"|"photometry"|"neossat_blink", "params": {...}, "locale": "en"}
 GET    /api/v1/jobs/{id}         status, stage, done/total, and the result once finished
 DELETE /api/v1/jobs/{id}         cancel
 
@@ -19,9 +19,11 @@ from pydantic import BaseModel, Field, ValidationError
 
 from app.core.validation_i18n import localize_errors
 
+from app.api.routes import neossat as nx
 from app.api.routes import spherex as sx
 from app.services.detection_service import run_detection
 from app.services.jobs import job_manager
+from app.services.neossat_archive import NeossatError
 from app.services.spherex_archive import SpherexError, spherex_archive
 
 router = APIRouter(prefix="/api/v1/jobs", tags=["Background jobs"])
@@ -63,11 +65,20 @@ class PhotometryParams(TargetParams):
     aperture_px: float = Field(2.0, ge=1.0, le=4.0)
 
 
-PARAM_MODELS = {"blink": BlinkParams, "detect": DetectParams, "photometry": PhotometryParams}
+class NeossatBlinkParams(TargetParams):
+    fov: float = Field(0.1, ge=0.02, le=0.2)
+    mode: Literal["visits", "frames"] = "visits"
+    visit_index: Optional[int] = Field(None, ge=0, le=5000)
+    per_visit: int = Field(5, ge=1, le=12)
+    max_frames: int = Field(12, ge=2, le=36)
+
+
+PARAM_MODELS = {"blink": BlinkParams, "detect": DetectParams, "photometry": PhotometryParams,
+                "neossat_blink": NeossatBlinkParams}
 
 
 class JobRequest(BaseModel):
-    kind: Literal["blink", "detect", "photometry"]
+    kind: Literal["blink", "detect", "photometry", "neossat_blink"]
     params: dict[str, Any] = Field(default_factory=dict)
     locale: str = "en"
 
@@ -80,6 +91,9 @@ def _error_mapper(locale: str):
             code = exc.code if exc.code in sx.MESSAGES["en"] else "upstream"
             status = 404 if code in ("no_coverage", "no_detector_coverage", "no_data") else 400 if code == "bad_pass" else 502
             return {"status": status, "detail": sx._msg(locale, code), "code": code}
+        if isinstance(exc, NeossatError):
+            code = exc.code if exc.code in nx.MESSAGES["en"] else "upstream"
+            return {"status": nx.error_status(code), "detail": nx.msg(locale, code), "code": code}
         return {"status": 500, "detail": f"Internal server error: {type(exc).__name__}"}
 
     return map_error
@@ -100,6 +114,9 @@ async def create_job(req: JobRequest) -> dict[str, Any]:
             data = await sx._build(p.target, p.ra, p.dec, p.pmra, p.pmdec, p.ref_epoch, p.fov, p.detector, p.mode,
                                    p.per_epoch, p.max_frames, locale, p.pass_index, p.wl_min, p.wl_max)
             return data
+        if isinstance(p, NeossatBlinkParams):
+            return await nx.build(p.target, p.ra, p.dec, p.pmra, p.pmdec, p.ref_epoch, p.fov, p.mode, p.visit_index,
+                                  p.per_visit, p.max_frames, locale)
         tgt = await sx._target_from_query(p.target, p.ra, p.dec, p.pmra, p.pmdec, p.ref_epoch, locale)
         dets = sx._parse_detectors(p.detector, locale)
         if isinstance(p, DetectParams):

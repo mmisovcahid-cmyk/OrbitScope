@@ -14,7 +14,7 @@
 
 OrbitScope is a public web tool for the NASA Space Apps challenge *"Planet X and SPHEREx"*. You enter a sky position or an object name, and it shows the **real SPHEREx images** of that place as a short time series ("blink"), so that moving and changing objects stand out. It also searches the same images for asteroids and high-proper-motion stars and checks every result against NASA/JPL, Gaia and CatWISE.
 
-Every page uses **real public data**: NASA/IPAC IRSA, NASA/JPL and ESA. No API keys are needed, and no simulated fallbacks exist. If a service is down, the page explains that instead of inventing values.
+Every page uses **real public data**: NASA/IPAC IRSA, NASA/JPL, ESA (with MAST as Gaia mirror) and the Canadian Space Agency's NEOSSat via CADC. No API keys are needed, and no simulated fallbacks exist. If a service is down, the page explains that instead of inventing values.
 
 ## 🚀 Pages
 
@@ -24,7 +24,8 @@ Every page uses **real public data**: NASA/IPAC IRSA, NASA/JPL and ESA. No API k
 | **Detection** (`/detection`) | Moving-object search on real exposures: asteroids/comets, or proper motion.<br>Checks against JPL SB Ident, Gaia and CatWISE; the requested target is always measured and its motion compared with the catalog.<br>Every rejected track says why (zig-zag, brightness jump, …).<br>Candidate review (real / artifact / unsure, optional team token) and CSV export. |
 | **Sky Explorer** (`/dashboard`) | All-sky map of every saved run and candidate, review counts, live service status. |
 | **Comparison** (`/comparison`) | Two real SPHEREx survey passes of one field side by side, with a difference image. |
-| **Analysis** (`/analysis/:id`) | One saved candidate: track, metrics and catalog matches, with links to the same field in Blink and to JPL. |
+| **Analysis** (`/analysis/:id`) | One saved candidate: track, metrics and catalog matches, with links to the same field in Blink, JPL and WiseView.<br>NEOSSat frames of the same position, with visits from the same days as the SPHEREx detection marked. |
+| **NEOSSat panel** (Blink, Analysis) | Independent optical frames (0.4–0.9 µm) from the Canadian Space Agency's NEOSSat, archived at CADC.<br>Raw frames are plate-solved against Gaia DR3 by OrbitScope; frames that cannot be solved are listed with the reason, never shown at a guessed position.<br>One stack per visit, or the single frames of one visit. |
 | **Catalog** (`/catalog`) | Live JPL SBDB lookup (orbit, physical data, close approaches), Horizons ephemeris, known objects in a field (SB Ident). |
 | **Planet X** (`/planetx`) | Live Rayleigh test for orbital clustering of extreme TNOs, on **every** qualifying object in JPL SBDB (59) and on the 20-object literature sample, side by side. Published evidence and search corridors are labelled as literature. |
 | **Embed** (`/embed?...`) | iframe-friendly Blink for other websites. |
@@ -137,7 +138,7 @@ The backend tests run offline. They include real SPHEREx cutouts (`backend/tests
 
 ## ⚠️ Data transparency
 
-- **Real data only:** every number on screen comes from IRSA, JPL, ESA, CDS or NED, with the source named.
+- **Real data only:** every number on screen comes from IRSA, JPL, ESA/MAST, CADC (CSA NEOSSat), CDS or NED, with the source named.
 - **Candidates are not discoveries:** a candidate needs independent confirmation and an MPC report by a registered observer.
 - **Planet Nine is a hypothesis:** the Planet X page tests orbital clustering. It does not claim to find the planet.
 

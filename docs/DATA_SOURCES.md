@@ -9,7 +9,12 @@ OrbitScope calls them directly from the backend. Results are cached on disk or i
 | NASA/IPAC IRSA datalink | `irsa.ipac.caltech.edu/datalink/links/spherex` | Level-2 FITS URL of each exposure | (same) | No |
 | NASA/IPAC IRSA IBE cutouts | `irsa.ipac.caltech.edu/ibe/data/spherex/...?center=&size=` | Real SPHEREx image cutouts (IMAGE, FLAGS, VARIANCE, ZODI, WCS-WAVE) | (same) + photometry | No |
 | NASA/IPAC IRSA TAP | `catwise_2020` | Infrared reference stars and proper motions | Blink overlay, Detection (PM) | No |
-| ESA Gaia archive TAP | `gea.esac.esa.int/tap-server/tap/sync` (`gaiadr3.gaia_source`) | Reference stars, proper motions | Blink overlay, Detection (PM) | No |
+| ESA Gaia archive TAP | `gea.esac.esa.int/tap-server/tap/sync` (`gaiadr3.gaia_source`) | Reference stars, proper motions | Blink overlay, Detection (PM), NEOSSat plate solutions | No |
+| MAST (STScI) Gaia DR3 TAP | `mast.stsci.edu/vo-tap/api/v0.1/gaiadr3/sync` (`dbo.gaia_source`, VOTable only) | Same Gaia DR3 rows when the ESA service fails (`mirror` field says which answered) | (same) | No |
+| CADC TAP (CSA NEOSSat) | `ws.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/argus/sync` (`caom2.Observation/Plane/Artifact`, collection `NEOSSAT`) | Public NEOSSat science frames covering a position (answers a POST with a 303 redirect) | Blink, Analysis (NEOSSat panel) | No |
+| CADC data service | `www.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/data/pub/NEOSSAT/<file>` | Raw NEOSSat science FITS (~0.4 MB) | (same) | No |
+| CSA open-data portal | `data.asc-csa.gc.ca/users/OpenData_DonneesOuvertes/pub/NEOSSAT/ASTRO/<year>/<day-of-year>/<file>` | Mirror of the same NEOSSat files, used when CADC fails | (same) | No |
+| WiseView (byw.tools) | `http://byw.tools/wiseview#ra=…&dec=…` (http only) | External link only: WISE/NEOWISE blink of the same position. No data is fetched from it | Blink, Analysis | No |
 | NASA/JPL SBDB | `ssd-api.jpl.nasa.gov/sbdb.api` | Orbits, physical data, discovery, close approaches | Catalog, Planet X | No |
 | NASA/JPL Horizons | `ssd.jpl.nasa.gov/api/horizons.api` | Current position / ephemeris | Catalog | No |
 | NASA/JPL SBDB Query API | `ssd-api.jpl.nasa.gov/sbdb_query.api` | Every extreme TNO (a ≥ 150 AU, q ≥ 30 AU) for the clustering test | Planet X | No |
@@ -18,6 +23,15 @@ OrbitScope calls them directly from the backend. Results are cached on disk or i
 | CDS Sesame (+ CfA mirror) | `cds.unistra.fr/cgi-bin/nph-sesame`, `vizier.cfa.harvard.edu/viz-bin/nph-sesame` | Object name to coordinates and proper motion | Name search everywhere | No |
 | NED name resolver | `ned.ipac.caltech.edu/srs/ObjectLookup` | Fallback name resolver | Name search | No |
 
+Method references used while building OrbitScope (not called at run time): the IRSA SPHEREx tutorial notebooks (`caltech-ipac.github.io/irsa-tutorials/spherex/`) and the CSA NEOSSat tutorial (`github.com/asc-csa/NEOSSAT_Tutorial`).
+
+### NEOSSat specifics
+
+- CADC serves only **raw** science frames for most fields (`productID = raw`). They carry no WCS, only the commanded boresight (`RA`, `DEC`) and roll (`OBJCTROL`). OrbitScope places every frame on the sky itself: stars detected in the frame are matched to Gaia DR3 (propagated to the frame date) by a rotation + offset vote around the header roll, then an affine fit. A frame is accepted only with ≥ 5 matched stars (and ≥ 30 % of the detections), rms ≤ 3″ and a pixel scale of 2.8–3.2″. Rejected frames are listed with the reason; none is shown at a guessed position.
+- The image area is the `DATASEC` section (256 × 256 px for most sub-frames); the overscan (`BIASSEC`) gives the bias. A smooth sky and each column's median are subtracted. There is no flat field, so pixel values are relative (ADU/s).
+- CAOM footprints include the overscan, so a frame can "cover" a position whose data area misses it; such frames are reported as `target_outside_frame`.
+- Validated on Barnard's Star (CADC frames of 2019-10/12): 26–30 Gaia matches per frame, rms 0.5–1.0″, scale 2.993″/px; the star sits on the predicted position in every visit and moves by the expected ~1.4″ over the seven weeks.
+
 ## Behaviour when a service is down
 
 - **Real-data pages never substitute invented values.** If IRSA or JPL fails, the page shows an explanation (backend HTTP 502). Earlier versions silently fell back to simulated objects; that behaviour was removed.
@@ -25,6 +39,8 @@ OrbitScope calls them directly from the backend. Results are cached on disk or i
   - IRSA cutouts: up to 3 attempts with backoff, on HTTP 5xx.
   - JPL requests: at most 4 at a time, retried on 429/503.
 - **CatWISE / Gaia overlay:** failures only hide the overlay; the images still load.
+- **Gaia DR3:** if ESA fails, the same query goes to MAST; only if both fail does the request return 502.
+- **NEOSSat:** CADC TAP failure → 502 with an explanation. Each file is tried at CADC, then at the CSA mirror (3 attempts each on 5xx/429). If Gaia is down, NEOSSat frames cannot be placed on the sky, so the request returns 502 instead of showing unsolved frames.
 - **Name search:** if CDS Sesame is down, the CfA mirror is tried, then NED. The five challenge targets are built in with Gaia DR3 / SIMBAD positions and proper motions, so they always resolve.
 
 ## No simulated data
@@ -33,7 +49,7 @@ The original prototype had `/api/v1/sky`, `/api/v1/observations` and `/api/v1/de
 
 ## Rate limit (public deployments)
 
-Requests that make the backend download from these services (blink, photometry, detection, overlay, catalog, clustering) are limited per client: `RATE_LIMIT_PER_MINUTE`, default 60. This protects both the OrbitScope server and the public archives. Status, job polling and saved candidates are not limited.
+Requests that make the backend download from these services (blink, photometry, detection, overlay, catalog, clustering, NEOSSat) are limited per client: `RATE_LIMIT_PER_MINUTE`, default 60. This protects both the OrbitScope server and the public archives. Status, job polling and saved candidates are not limited.
 
 ## What would need the team's own action (not automatable here)
 

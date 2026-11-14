@@ -2,14 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pause, Play, SkipBack, SkipForward, Crosshair, Layers } from 'lucide-react';
 import {
-  Annotation, AnnotationPath, BlinkResult, CatalogOverlay, ColorMapKind, DecodedFrame, OVERLAY_COLORS, StretchKind, buildLut, decodeFrames,
+  Annotation, AnnotationPath, CatalogOverlay, ColorMapKind, DecodedFrame, OVERLAY_COLORS, StretchKind, ViewableResult, buildLut, decodeFrames,
   formatDec, formatRA, mjdToYear, percentiles, pixelToWorld, propagate, stretchValue, worldToPixel,
 } from '../../lib/spherex';
 
 export type ViewMode = 'blink' | 'difference' | 'motion' | 'stack';
 
 interface Props {
-  result: BlinkResult;
+  result: ViewableResult;
   compact?: boolean;
   autoplay?: boolean;
   onFrameChange?: (index: number) => void;
@@ -350,7 +350,7 @@ export default function BlinkViewer({
           {hoverMark ? (
             <span style={{ color: hoverMark.color }}>{hoverMark.info}</span>
           ) : hoverWorld ? (
-            <>RA {formatRA(hoverWorld[0])} · Dec {formatDec(hoverWorld[1])} · ({hover!.x}, {hover!.y}) · {Number.isFinite(hoverVal) ? `${hoverVal.toFixed(3)} MJy/sr` : 'NaN'}</>
+            <>RA {formatRA(hoverWorld[0])} · Dec {formatDec(hoverWorld[1])} · ({hover!.x}, {hover!.y}) · {Number.isFinite(hoverVal) ? `${hoverVal.toFixed(3)} ${result.unit_short ?? 'MJy/sr'}` : 'NaN'}</>
           ) : (
             <span className="text-gray-600">{t('blink.viewer.hoverHint')}</span>
           )}

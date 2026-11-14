@@ -30,6 +30,7 @@ LIMITED: tuple[tuple[str, str], ...] = (
     ("GET", "/api/v1/spherex/coverage"),
     ("GET", "/api/v1/spherex/resolve"),
     ("GET", "/api/v1/catalog/"),
+    ("GET", "/api/v1/neossat/"),             # CADC TAP + frame downloads + plate solving
     ("GET", "/api/v1/planetx/clustering"),
 )
 

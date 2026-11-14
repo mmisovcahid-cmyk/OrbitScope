@@ -15,6 +15,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.routes.catalog import router as catalog_router
 from app.api.routes.jobs import router as jobs_router
+from app.api.routes.neossat import router as neossat_router
 from app.api.routes.planetx import router as planetx_router
 from app.api.routes.spherex import router as spherex_router
 from app.api.routes.system import router as system_router
@@ -107,6 +108,7 @@ app.add_middleware(
 
 # Mount all API routers
 app.include_router(spherex_router)
+app.include_router(neossat_router)
 app.include_router(jobs_router)
 app.include_router(catalog_router)
 app.include_router(planetx_router)

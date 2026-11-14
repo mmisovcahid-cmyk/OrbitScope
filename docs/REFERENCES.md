@@ -23,6 +23,21 @@
 - **API Endpoint:** https://ssd.jpl.nasa.gov/api/horizons.api
 - **Content:** Precision ephemerides for solar system bodies
 
+### CSA NEOSSat (Near-Earth Object Surveillance Satellite)
+- **Mission Page:** https://www.asc-csa.gc.ca/eng/satellites/neossat/
+- **Data Archive:** Canadian Astronomy Data Centre - https://www.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/en/neossat/
+- **Open-data record (mirror):** https://data.asc-csa.gc.ca/dataset/neossat
+- **Tutorial:** https://github.com/asc-csa/NEOSSAT_Tutorial
+- **Data Access:** CADC TAP (`caom2`, collection `NEOSSAT`) and the CADC data service
+
+### Gaia DR3 at MAST (fallback mirror)
+- **Mission data page:** https://archive.stsci.edu/missions-and-data/gaia
+- **TAP:** https://mast.stsci.edu/vo-tap/api/v0.1/gaiadr3/
+
+### Tools used as references
+- **IRSA SPHEREx tutorial notebooks:** https://caltech-ipac.github.io/irsa-tutorials/spherex/
+- **WiseView** (WISE/NEOWISE blink tool, linked from Blink and Analysis): http://byw.tools/wiseview
+
 ## Scientific References
 
 ### Planet Nine Hypothesis
@@ -76,4 +91,5 @@
 ## Data Licensing
 
 - NASA SPHEREx, IRSA and JPL data are used under NASA's open data policy; ESA Gaia data under the Gaia data licence (CC BY-SA 3.0 IGO), with acknowledgement.
+- NEOSSat data: Canadian Space Agency, Open Government Licence - Canada (as stated on the CSA open-data record); archived and served by CADC.
 - The OrbitScope code is MIT-licensed (see `LICENSE`).

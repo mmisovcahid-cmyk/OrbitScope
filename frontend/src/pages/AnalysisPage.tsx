@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, XCircle, HelpCircle, Download, Eye, Database, AlertTriangle } from 'lucide-react';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import NeossatPanel from '../components/blink/NeossatPanel';
+import { wiseviewUrl } from '../lib/neossat';
 import { spherexService } from '../services';
 import api from '../services/api';
 import { CLASS_COLORS, Candidate, ReviewStatus, errorText, formatDec, formatRA } from '../lib/spherex';
@@ -81,6 +83,8 @@ export default function AnalysisPage() {
           <div className="flex flex-wrap gap-2">
             <Link to={`/?${blinkQ}`} className="px-3 py-1.5 rounded-lg bg-sky-500/15 border border-sky-500/30 text-xs text-sky-200 flex items-center gap-1"><Eye className="w-4 h-4" /> Blink</Link>
             <a href={spherexService.exportUrl(cand.id)} className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-200 flex items-center gap-1"><Download className="w-4 h-4" /> CSV</a>
+            <a href={wiseviewUrl(cand.ra, cand.dec)} target="_blank" rel="noreferrer" title={t('external.wiseviewHelp')}
+              className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-200 flex items-center gap-1"><Eye className="w-4 h-4" /> WiseView</a>
             {cand.match?.type === 'known_sso' && (
               <Link to={`/catalog?q=${encodeURIComponent(cand.match.name.split(' (')[0])}`} className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-200 flex items-center gap-1"><Database className="w-4 h-4" /> JPL</Link>
             )}
@@ -141,6 +145,9 @@ export default function AnalysisPage() {
         </div>
         <p className="text-[10px] text-gray-600 mt-2">{t('detect.disclaimer')}</p>
       </div>
+
+      {/* Independent optical data of the same position: does NEOSSat have frames (ideally from the same nights)? */}
+      <NeossatPanel ra={cand.ra} dec={cand.dec} highlightMjd={cand.t0_mjd} />
     </div>
   );
 }

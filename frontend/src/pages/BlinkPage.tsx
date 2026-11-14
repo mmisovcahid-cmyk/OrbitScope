@@ -5,6 +5,8 @@ import { Search, Sparkles, Link2, Code2, Download, ExternalLink, AlertTriangle, 
 import BlinkViewer from '../components/blink/BlinkViewer';
 import PhotometryPanel from '../components/blink/PhotometryPanel';
 import AladinPanel from '../components/blink/AladinPanel';
+import NeossatPanel from '../components/blink/NeossatPanel';
+import { wiseviewUrl } from '../lib/neossat';
 import JobProgressBar from '../components/common/JobProgressBar';
 import { JobProgress, isAbort, runJob } from '../lib/jobs';
 import { spherexService } from '../services';
@@ -319,6 +321,11 @@ export default function BlinkPage() {
               )}
               {result.target.note && <p className="text-[11px] text-sky-300/80 mt-2">{result.target.note}</p>}
               <p className="text-[10px] text-gray-600 mt-2">{t('blink.panels.resolver')}: {result.target.resolver}</p>
+              <a href={wiseviewUrl(result.target.center_ra, result.target.center_dec)} target="_blank" rel="noreferrer"
+                className="mt-2 inline-flex items-center gap-1 text-[11px] text-sky-400 hover:text-sky-300"
+                title={t('external.wiseviewHelp')}>
+                {t('external.wiseview')} <ExternalLink className="w-3 h-3" />
+              </a>
             </div>
 
             {/* Current frame */}
@@ -418,6 +425,11 @@ export default function BlinkPage() {
       {!loading && result && (
         <AladinPanel ra={result.target.center_ra} dec={result.target.center_dec} fov={result.grid.fov_deg}
           label={result.target.name || t('blink.panels.customPosition')} />
+      )}
+
+      {!loading && result && (
+        <NeossatPanel ra={result.target.ra} dec={result.target.dec} pmra={result.target.pmra} pmdec={result.target.pmdec}
+          refEpoch={result.target.ref_epoch} />
       )}
 
       {!loading && result && query && (

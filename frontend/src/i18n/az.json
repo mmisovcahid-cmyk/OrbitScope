@@ -299,7 +299,10 @@
       "spherex": "NASA SPHEREx Level-2 spektral şəkilləri (NASA/IPAC IRSA: TAP, datalink, IBE kəsikləri)",
       "jpl": "NASA/JPL Kiçik Cisimlər Bazası, Horizons və SB Ident API-ləri",
       "mpc": "CDS Sesame və NED ad həlledicilər (obyekt adından koordinata)",
-      "gaia": "ESA Gaia DR3 və CatWISE2020 (IRSA) istinad kataloqları",
+      "gaia": "ESA Gaia DR3 (ESA arxivi; ESA işləmədikdə DR3-ün MAST/STScI nüsxəsi) və CatWISE2020 (IRSA) istinad kataloqları",
+      "neossat": "Kanada Kosmik Agentliyinin NEOSSat xam elmi kadrları Kanada Astronomiya Məlumat Mərkəzindən (CADC TAP + fayl servisi), yükləmə güzgüsü kimi CSA açıq məlumat portalı; OrbitScope tərəfindən Gaia DR3 ilə astrometrik həll edilir",
+      "toolsLabel": "Bələdçilər:",
+      "tools": "Metod istinadları (məlumat axını deyil): dərslik noutbukları və hər mövqedən keçid verilən WiseView blink aləti —",
       "note": "SPHEREx Blink, Səma Tədqiqatçısı, Aşkarlama, Müqayisə, Kataloq və Planet X klaster testində göstərilən bütün məlumat realdır və bu ictimai servislərdən canlı alınır; heç biri API açarı tələb etmir. Ədəbiyyat dəyərləri (Planet X sübutları və proqnozları) belə işarələnib."
     },
     "limitations": {
@@ -665,11 +668,49 @@
       "search": "Hərəkətli mənbələr axtarılır…",
       "catalogs": "Məlum obyektlər yoxlanılır (JPL / Gaia / CatWISE)…",
       "save": "Namizədlər saxlanılır…",
+      "neossat_coverage": "NEOSSat kadrları axtarılır (CADC)…",
+      "neossat_gaia": "Gaia DR3 istinad ulduzları yüklənir…",
+      "solve": "Kadrlar göydə yerləşdirilir (ulduzlar Gaia DR3 ilə uyğunlaşdırılır)",
       "done": "Hazırdır"
     },
     "queued": "Başqa axtarışlar işləyir; bu, boş yer açılan kimi başlayacaq.",
     "cancel": "Ləğv et",
     "cancelled": "Ləğv edildi."
+  },
+  "neossat": {
+    "title": "Eyni mövqedə NEOSSat (Kanada Kosmik Agentliyi)",
+    "subtitle": "CADC-də arxivlənmiş NEOSSat-ın müstəqil optik kadrları (0.4–0.9 µm, ~3″/piksel). Hər xam kadr ulduzları Gaia DR3 ilə uyğunlaşdırılaraq göydə yerləşdirilir; uyğunlaşdırıla bilməyən kadrlar göstərilmir və aşağıda sayılır.",
+    "checking": "CADC arxivində NEOSSat kadrları yoxlanılır…",
+    "noCoverage": "NEOSSat bu mövqenin ictimai elmi kadrlarına malik deyil. NEOSSat bütün göyü deyil, seçilmiş hədəfləri müşahidə edir, ona görə bu, obyektin özü haqqında heç nə demir.",
+    "coverageSummary": "{{visits}} müşahidədə {{frames}} ictimai kadr, {{from}} → {{to}}.",
+    "visitList": "Müşahidələr ({{n}})",
+    "simultaneous": "SPHEREx aşkarlanması ilə eyni günlər",
+    "mode": "NEOSSat görünüşü",
+    "modeVisits": "Hər müşahidə üçün bir toplama (xüsusi hərəkət, dəyişkənlik)",
+    "modeFrames": "Bir müşahidənin ayrı-ayrı kadrları (hərəkətli obyektlər)",
+    "visit": "Müşahidə",
+    "visitAuto": "Ən çox kadrı olan müşahidə",
+    "show": "NEOSSat kadrlarını göstər",
+    "loadingHint": "İlk sorğu xam kadrları CADC-dən yükləyir (hər biri təxminən 0.4 MB) və hər birini Gaia DR3 ilə həll edir; təkrar sorğular daha sürətlidir.",
+    "astrometry": "Astrometriya",
+    "stars": "Gaia ulduzu",
+    "rejected": "{{n}} kadr göstərilmir:",
+    "reasons": {
+      "too_few_stars": "kadrda çox az ulduz var",
+      "too_few_reference_stars": "sahədə çox az Gaia ulduzu var",
+      "no_pattern_match": "ulduz düzülüşü Gaia ilə uyğun gəlmədi",
+      "too_few_matches": "Gaia ilə çox az ulduz uyğunlaşdı",
+      "poor_fit": "astrometrik uyğunlaşma çox zəifdir",
+      "wrong_scale": "piksel miqyası NEOSSat ilə uyğun deyil",
+      "target_outside_frame": "hədəf kadrın məlumat sahəsindən kənardadır",
+      "download_failed": "yükləmə alınmadı (CADC və CSA güzgüsü)",
+      "bad_header": "FITS başlığı oxunmur"
+    },
+    "disclaimer": "NEOSSat kadrları xamdır (bias və fon çıxılıb, flat field yoxdur). Mövqelər arxivdən deyil, OrbitScope-un Gaia DR3 ilə öz astrometrik həllindən gəlir. Məlumat: CADC vasitəsilə CSA NEOSSat; ehtiyat olaraq CSA açıq məlumat güzgüsü."
+  },
+  "external": {
+    "wiseview": "WiseView-da aç (WISE/NEOWISE)",
+    "wiseviewHelp": "WiseView (byw.tools) bu mövqenin WISE/NEOWISE şəkillərini növbə ilə göstərir. Bu, xarici saytdır."
   },
   "catalogLive": {
     "subtitle": "NASA/JPL-dən canlı məlumat: Kiçik Cisimlər Bazası (orbitlər, fiziki məlumat, yaxınlaşmalar), Horizons (cari mövqe və efemerid) və SB Ident (istənilən səma sahəsindəki məlum obyektlər). Bu səhifədə heç nə simulyasiya deyil.",

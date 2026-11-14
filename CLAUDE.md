@@ -57,11 +57,22 @@ Real-data paths must never fall back to invented values: return a 502 with an ex
 - Frontend: `pages/BlinkPage.tsx` (`/`), `pages/EmbedPage.tsx` (`/embed`, iframe-friendly), `components/blink/BlinkViewer.tsx`, `lib/spherex.ts`. The URL query (`target, ra, dec, fov, det, mode, per, max`) is the source of truth, so links are shareable.
 - The IRSA cutout service sometimes returns 503; `fetch_cutout` retries with backoff.
 - `/api/v1/spherex/photometry` measures one position in up to 96 exposures, spread over detectors and time (`select_for_photometry`). Each point's wavelength comes from that pixel's LVF wavelength via the `WCS-WAVE` table (`Cutout.wavelength_at`), so the same result gives both a spectrum and a light curve. Saturated (OVERFLOW) or mostly masked apertures are returned with `flagged: true` rather than dropped.
-- `/api/v1/spherex/overlay` (`app/services/catalog_overlay.py`) serves Gaia DR3 (ESA TAP, epoch 2016.0) and CatWISE2020 (IRSA TAP, epoch 2015.4, pm converted to mas/yr). CatWISE rows with D/P/H/O artifact flags are dropped, and motions of blended (nb>1) or low-S/N detections are zeroed. The browser propagates each marker to the date of the frame being shown.
+- `/api/v1/spherex/overlay` (`app/services/catalog_overlay.py`) serves Gaia DR3 (ESA TAP, epoch 2016.0; on ESA failure the same query goes to MAST's copy, `dbo.gaia_source`, VOTable only — the result's `mirror` says which answered) and CatWISE2020 (IRSA TAP, epoch 2015.4, pm converted to mas/yr). CatWISE rows with D/P/H/O artifact flags are dropped, and motions of blended (nb>1) or low-S/N detections are zeroed. The browser propagates each marker to the date of the frame being shown.
+
+## NEOSSat (CSA) path
+
+- `app/services/neossat_archive.py` + `app/api/routes/neossat.py` (`/api/v1/neossat/{coverage,blink}`, job kind `neossat_blink`).
+  - CADC TAP (`caom2`, collection `NEOSSAT`, public frames only; the sync POST answers 303, so follow redirects). Files come from the CADC data service, with the CSA open-data mirror (`ASTRO/<year>/<doy>/`) as fallback, cached under `backend/cache/neossat/`.
+  - The raw frames have **no WCS**. `solve_frame` plate-solves each one against Gaia DR3 (rotation + offset vote around `OBJCTROL + 270°`, then an affine fit). Acceptance: `MIN_MATCHES`, `MAX_RMS_ARCSEC`, `SCALE_RANGE`. Unsolved frames go to `rejected` with a reason; never show a frame at a guessed position.
+  - Calibration: `DATASEC` minus the `BIASSEC` median, divided by exposure, smooth sky and per-column medians removed (column banding). No flat field.
+  - The result has the SPHEREx blink shape (`grid` + `frames`, plus `unit_short`), so `BlinkViewer` (typed as `ViewableResult`) shows it unchanged.
+- Frontend: `components/blink/NeossatPanel.tsx` on Blink and Analysis, `lib/neossat.ts` (types, `wiseviewUrl`). WiseView is an external link only (http, not https).
+- Tests: `tests/test_neossat.py` uses a real raw frame of Barnard's Star and its Gaia stars (`tests/fixtures/neossat_barnard_*`).
+
 ## Background jobs and progress
 
 - `app/services/jobs.py` (`JobManager`) runs long work as in-process asyncio tasks, at most 3 at a time. Identical requests (same kind, locale and params) share one job, and finished jobs are kept for 30 minutes.
-- Routes are in `app/api/routes/jobs.py`. `POST /api/v1/jobs {kind: blink|detect|photometry, params, locale}` validates the params with the same limits as the direct endpoints and calls the same internals (`spherex._build`, `run_detection`, `spherex_archive.photometry`).
+- Routes are in `app/api/routes/jobs.py`. `POST /api/v1/jobs {kind: blink|detect|photometry|neossat_blink, params, locale}` validates the params with the same limits as the direct endpoints and calls the same internals (`spherex._build`, `run_detection`, `spherex_archive.photometry`).
 - Progress: library code calls `app.core.progress.report(stage, done, total)`, or `gather_with_progress` for parallel downloads. The job installs a ContextVar callback, so this works through `asyncio.gather` and `to_thread` without any signature changes. Stage names are the keys under `jobs.stage.*` in i18n.
 - Frontend: `lib/jobs.ts` `runJob()` submits a job, polls it, cancels it when the AbortSignal fires, and throws `JobError` with the server's localized message. `components/common/JobProgressBar.tsx` shows the progress. Blink, Detection, Photometry and Embed all use jobs; the direct GET endpoints stay for scripts and GIF export.
 - `spherex_archive.prune_cache()` keeps the cutout cache under `SPHEREX_CACHE_MAX_MB`. It runs at startup and after every 50 new downloads. `GET /api/v1/spherex/status` is the health endpoint.
@@ -105,7 +116,7 @@ Real-data paths must never fall back to invented values: return a 502 with an ex
 
 ### Data transparency (project invariant)
 
-Every endpoint serves real data from IRSA, JPL, ESA, CDS or NED. On failure it returns an HTTP 502 with a localized explanation; it never falls back to invented values. Literature content (Planet X evidence and corridors) is labelled `data_source: "published literature"`. Detected objects are "candidates", never discoveries; Planet Nine is presented as an unconfirmed hypothesis. Preserve these distinctions in any new data path or UI copy.
+Every endpoint serves real data from IRSA, JPL, ESA (or MAST), CADC/CSA (NEOSSat), CDS or NED. On failure it returns an HTTP 502 with a localized explanation; it never falls back to invented values. Literature content (Planet X evidence and corridors) is labelled `data_source: "published literature"`. Detected objects are "candidates", never discoveries; Planet Nine is presented as an unconfirmed hypothesis. Preserve these distinctions in any new data path or UI copy.
 
 ### Public deployment
 

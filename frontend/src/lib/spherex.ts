@@ -96,7 +96,15 @@ export const DETECTOR_INFO: Record<string, string> = {
   all: '0.75–5.0 µm',
 };
 
-export function decodeFrames(res: BlinkResult): DecodedFrame[] {
+/** What the blink viewer needs: the grid and the encoded frames (SPHEREx or NEOSSat). */
+export interface ViewableResult {
+  grid: BlinkResult['grid'];
+  frames: BlinkFrame[];
+  /** Pixel unit for the hover readout (default MJy/sr, SPHEREx). */
+  unit_short?: string;
+}
+
+export function decodeFrames(res: ViewableResult): DecodedFrame[] {
   const n = res.grid.width * res.grid.height;
   return res.frames.map((f) => {
     const raw = atob(f.data);

@@ -28,6 +28,11 @@
   - The five challenge targets resolve offline.
   - `scripts/prewarm.py` caches their images in advance.
 - **First view of a new field** takes 30–90 s while cutouts download. Background jobs show progress and can be cancelled. The five challenge targets are downloaded in advance (`scripts/prewarm.py`, or automatically at startup in Docker).
+- **NEOSSat.**
+  - NEOSSat observes selected targets, so most positions have no frames; that says nothing about the object.
+  - Frames are raw (no flat field), 0.4–0.9 µm, ~3″/px and short exposures (1.1 s in the Barnard's Star sequences), so they are much shallower than SPHEREx stacks and show only brighter sources.
+  - Astrometry is OrbitScope's own plate solution against Gaia DR3; sparse fields (few stars ≥ 6σ) or frames with trails can fail and are then left out with the reason.
+  - The moving-object search does not run on NEOSSat frames yet; NEOSSat is shown for visual comparison and as an independent check of a position.
 - **Withdrawn archive files.** IRSA lists frames of superseded quick releases (QR2) whose files no longer exist. OrbitScope learns this on the first request and replaces those frames; until then a new field may briefly have fewer frames.
 
 ## Infrastructure limitations

@@ -299,7 +299,10 @@
       "spherex": "NASA SPHEREx Level-2 spectral images (NASA/IPAC IRSA: TAP, datalink, IBE cutouts)",
       "jpl": "NASA/JPL Small-Body Database, Horizons and SB Ident APIs",
       "mpc": "CDS Sesame and NED name resolvers (object names to coordinates)",
-      "gaia": "ESA Gaia DR3 and CatWISE2020 (IRSA) reference catalogs",
+      "gaia": "ESA Gaia DR3 (ESA archive; MAST/STScI copy of DR3 when ESA is down) and CatWISE2020 (IRSA) reference catalogs",
+      "neossat": "Canadian Space Agency NEOSSat raw science frames from the Canadian Astronomy Data Centre (CADC TAP + file service), with the CSA open-data portal as download mirror; plate-solved by OrbitScope against Gaia DR3",
+      "toolsLabel": "Guides:",
+      "tools": "Method references (not data feeds): the tutorial notebooks and the WiseView blink tool, which is linked from every position —",
       "note": "All data shown in SPHEREx Blink, Sky Explorer, Detection, Comparison, Catalog and the Planet X clustering test is real and fetched live from these public services; none of them needs an API key. Literature values (Planet X evidence and predictions) are labelled as such."
     },
     "limitations": {
@@ -665,11 +668,49 @@
       "search": "Searching for moving sources…",
       "catalogs": "Checking known objects (JPL / Gaia / CatWISE)…",
       "save": "Saving candidates…",
+      "neossat_coverage": "Finding NEOSSat frames (CADC)…",
+      "neossat_gaia": "Loading Gaia DR3 reference stars…",
+      "solve": "Placing frames on the sky (matching stars to Gaia DR3)",
       "done": "Done"
     },
     "queued": "Other searches are running; this one starts as soon as a slot is free.",
     "cancel": "Cancel",
     "cancelled": "Cancelled."
+  },
+  "neossat": {
+    "title": "NEOSSat (Canadian Space Agency) at the same position",
+    "subtitle": "Independent optical frames (0.4–0.9 µm, ~3″/pixel) from NEOSSat, archived at CADC. Each raw frame is placed on the sky by matching its stars to Gaia DR3; frames that cannot be matched are left out and counted below.",
+    "checking": "Checking the CADC archive for NEOSSat frames…",
+    "noCoverage": "NEOSSat has no public science frames of this position. NEOSSat observes selected targets, not the whole sky, so this says nothing about the object itself.",
+    "coverageSummary": "{{frames}} public frames in {{visits}} visits, {{from}} → {{to}}.",
+    "visitList": "Visits ({{n}})",
+    "simultaneous": "same days as the SPHEREx detection",
+    "mode": "NEOSSat view",
+    "modeVisits": "One stack per visit (proper motion, variability)",
+    "modeFrames": "Single frames of one visit (moving objects)",
+    "visit": "Visit",
+    "visitAuto": "Visit with the most frames",
+    "show": "Show NEOSSat frames",
+    "loadingHint": "The first request downloads the raw frames from CADC (about 0.4 MB each) and solves each one against Gaia DR3; repeats are faster.",
+    "astrometry": "Astrometry",
+    "stars": "Gaia stars",
+    "rejected": "{{n}} frames not shown:",
+    "reasons": {
+      "too_few_stars": "too few stars in the frame",
+      "too_few_reference_stars": "too few Gaia stars in the field",
+      "no_pattern_match": "star pattern did not match Gaia",
+      "too_few_matches": "too few stars matched Gaia",
+      "poor_fit": "astrometric fit too poor",
+      "wrong_scale": "pixel scale inconsistent with NEOSSat",
+      "target_outside_frame": "target outside the frame's data area",
+      "download_failed": "download failed (CADC and CSA mirror)",
+      "bad_header": "unreadable FITS header"
+    },
+    "disclaimer": "NEOSSat frames are raw (bias and sky subtracted, no flat field). Positions come from OrbitScope's own plate solution against Gaia DR3, not from the archive. Data: CSA NEOSSat via CADC; CSA open-data mirror as fallback."
+  },
+  "external": {
+    "wiseview": "Open in WiseView (WISE/NEOWISE)",
+    "wiseviewHelp": "WiseView (byw.tools) blinks the WISE/NEOWISE images of this position. It is an external site."
   },
   "catalogLive": {
     "subtitle": "Live data from NASA/JPL: the Small-Body Database (orbits, physical data, close approaches), Horizons (current position and ephemeris) and SB Ident (known objects in any sky field). Nothing on this page is simulated.",

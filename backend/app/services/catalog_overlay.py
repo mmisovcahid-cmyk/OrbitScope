@@ -5,7 +5,7 @@ Fetches sources around a position from external surveys so they can be drawn on 
 of the SPHEREx frames. Every source carries its proper motion and reference epoch, so the
 browser can move each marker to where the star was on the date of each SPHEREx frame.
 
-* Gaia DR3   (ESA Gaia archive TAP)   epoch 2016.0, pm in mas/yr
+* Gaia DR3   (ESA Gaia archive TAP; MAST's copy of DR3 when ESA fails)   epoch 2016.0, pm in mas/yr
 * CatWISE2020 (NASA/IPAC IRSA TAP)    epoch 2015.4, pm converted from arcsec/yr to mas/yr
 """
 from __future__ import annotations
@@ -28,6 +28,8 @@ from app.core.logging_config import get_logger
 logger = get_logger(__name__)
 
 GAIA_TAP = "https://gea.esac.esa.int/tap-server/tap/sync"
+# MAST (STScI) hosts a copy of Gaia DR3 (table dbo.gaia_source). It answers in VOTable only.
+MAST_GAIA_TAP = "https://mast.stsci.edu/vo-tap/api/v0.1/gaiadr3/sync"
 
 CATALOGS: dict[str, dict[str, Any]] = {
     "gaia": {"label": "Gaia DR3", "ref_epoch": 2016.0, "band": "G"},
@@ -73,6 +75,46 @@ async def _tap(url: str, query: str, extra: dict[str, str] | None = None) -> lis
     return _rows(resp.text)
 
 
+def _votable_rows(content: bytes) -> list[dict[str, str]]:
+    """VOTable -> list of str dicts (same shape as the CSV rows); masked cells become ''."""
+    import numpy as np
+    from astropy.io.votable import parse_single_table
+
+    try:
+        table = parse_single_table(io.BytesIO(content)).to_table()
+    except Exception as exc:  # noqa: BLE001 - malformed or error document
+        raise CatalogError(f"unreadable VOTable: {exc}") from exc
+    return [
+        {name: "" if np.ma.is_masked(rec[name]) else str(rec[name]) for name in table.colnames}
+        for rec in table
+    ]
+
+
+async def _tap_votable(url: str, query: str) -> list[dict[str, str]]:
+    try:
+        async with httpx.AsyncClient(timeout=90.0) as client:
+            resp = await client.post(url, data={"LANG": "ADQL", "REQUEST": "doQuery", "QUERY": query})
+    except httpx.HTTPError as exc:
+        raise CatalogError(f"catalog service unreachable: {exc}") from exc
+    if resp.status_code != 200 or b"<VOTABLE" not in resp.content[:2000]:
+        raise CatalogError(f"catalog service error (HTTP {resp.status_code})")
+    return _votable_rows(resp.content)
+
+
+async def _gaia_rows(circle: str, limit: int) -> tuple[list[dict[str, str]], str]:
+    """Gaia DR3 rows from ESA; if ESA fails, from MAST's copy of the same release."""
+    cols = "source_id, ra, dec, pmra, pmdec, parallax, phot_g_mean_mag"
+    where = f"WHERE 1=CONTAINS(POINT('ICRS', ra, dec), {circle}) ORDER BY phot_g_mean_mag"
+    try:
+        return await _tap(GAIA_TAP, f"SELECT TOP {limit} {cols} FROM gaiadr3.gaia_source {where}", {"REQUEST": "doQuery"}), "ESA"
+    except CatalogError as esa_exc:
+        logger.warning(f"ESA Gaia TAP failed ({esa_exc}); trying MAST")
+        try:
+            return await _tap_votable(MAST_GAIA_TAP, f"SELECT TOP {limit} {cols} FROM dbo.gaia_source {where}"), "MAST"
+        except CatalogError as mast_exc:
+            raise CatalogError(f"Gaia DR3 unavailable at ESA ({esa_exc}) and MAST ({mast_exc})") from mast_exc
+
+
 async def fetch_catalog(catalog: str, ra: float, dec: float, radius_deg: float, limit: int = 1500) -> dict[str, Any]:
     if catalog not in CATALOGS:
         raise CatalogError(f"unknown catalog '{catalog}'")
@@ -90,13 +132,10 @@ async def fetch_catalog(catalog: str, ra: float, dec: float, radius_deg: float, 
 
     circle = f"CIRCLE('ICRS', {ra:.6f}, {dec:.6f}, {radius_deg:.5f})"
     sources: list[dict[str, Any]] = []
+    mirror = "IRSA"
     if catalog == "gaia":
-        q = (
-            f"SELECT TOP {limit} source_id, ra, dec, pmra, pmdec, parallax, phot_g_mean_mag "
-            f"FROM gaiadr3.gaia_source WHERE 1=CONTAINS(POINT('ICRS', ra, dec), {circle}) "
-            "ORDER BY phot_g_mean_mag"
-        )
-        for r in await _tap(GAIA_TAP, q, {"REQUEST": "doQuery"}):
+        gaia_rows, mirror = await _gaia_rows(circle, limit)
+        for r in gaia_rows:
             ra_s, dec_s = _f(r.get("ra")), _f(r.get("dec"))
             if ra_s is None or dec_s is None:
                 continue
@@ -136,6 +175,7 @@ async def fetch_catalog(catalog: str, ra: float, dec: float, radius_deg: float, 
     result = {
         "catalog": catalog, "label": meta["label"], "band": meta["band"], "ref_epoch": meta["ref_epoch"],
         "count": len(sources), "truncated": len(sources) >= limit, "sources": sources,
+        "mirror": mirror,
     }
     _cache[key] = result
     try:

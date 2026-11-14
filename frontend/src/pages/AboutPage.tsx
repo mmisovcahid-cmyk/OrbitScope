@@ -106,6 +106,23 @@ export default function AboutPage() {
             <span className="font-semibold text-emerald-400 shrink-0 w-24">ESA Gaia:</span>
             <span className="text-gray-300">{t('about.dataSources.gaia')}</span>
           </div>
+
+          <div className="flex items-start gap-3 p-3 rounded-lg bg-white/[0.01] border border-white/5">
+            <span className="font-semibold text-emerald-400 shrink-0 w-24">CSA NEOSSat:</span>
+            <span className="text-gray-300">{t('about.dataSources.neossat')}</span>
+          </div>
+
+          <div className="flex items-start gap-3 p-3 rounded-lg bg-white/[0.01] border border-white/5">
+            <span className="font-semibold text-emerald-400 shrink-0 w-24">{t('about.dataSources.toolsLabel')}</span>
+            <span className="text-gray-300">
+              {t('about.dataSources.tools')}{' '}
+              <a href="https://caltech-ipac.github.io/irsa-tutorials/spherex/" target="_blank" rel="noreferrer" className="text-sky-400 hover:text-sky-300">IRSA SPHEREx</a>
+              {' · '}
+              <a href="https://github.com/asc-csa/NEOSSAT_Tutorial" target="_blank" rel="noreferrer" className="text-sky-400 hover:text-sky-300">CSA NEOSSat</a>
+              {' · '}
+              <a href="http://byw.tools/wiseview" target="_blank" rel="noreferrer" className="text-sky-400 hover:text-sky-300">WiseView</a>
+            </span>
+          </div>
         </div>
 
         <div className="p-3.5 rounded-lg bg-amber-500/5 border border-amber-500/20 text-xs text-amber-300 flex items-start gap-2.5">
