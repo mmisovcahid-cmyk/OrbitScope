@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-OrbitScope is a SPHEREx time-domain sky monitoring / moving-object detection platform: a Python FastAPI backend (`backend/`) running an astronomical image-processing pipeline, plus a React + TypeScript + Vite + Tailwind frontend (`frontend/`). The UI is bilingual (English / Azerbaijani). See `docs/DATA_SOURCES.md` for every external API (all keyless) and `docs/AUDIT_AND_ROADMAP.md` for status and validation results.
+OrbitScope is a SPHEREx time-domain sky monitoring / moving-object detection platform: a Python FastAPI backend (`backend/`) running an astronomical image-processing pipeline, plus a React + TypeScript + Vite + Tailwind frontend (`frontend/`). The UI is bilingual (English / Azerbaijani). See `docs/DATA_SOURCES.md` for every external API (all keyless) and `docs/AUDIT_AND_ROADMAP.md` for status and validation results. The other docs: `docs/ARCHITECTURE.md` (request flow, persistence table), `docs/METHODOLOGY.md` (detection algorithms), `docs/LIMITATIONS.md`, `docs/REFERENCES.md`.
 
-Git workflow (from the user): develop in the worktree `.claude/worktrees/full-system` (branch `dev/full-system`), merge into `main` only after the user approves, and never push without explicit approval.
+Git workflow (from the user): develop in the worktree `.claude/worktrees/full-system` (branch `dev/full-system`), merge into `main` only after the user approves, and never push without explicit approval. `.claude/worktrees/` is gitignored. Run `git worktree list` first: if the worktree is missing, recreate it with `git worktree add .claude/worktrees/full-system dev/full-system` (add `-b dev/full-system` only if the branch is gone too). Work not yet merged exists only on that branch, so run `git log main..dev/full-system` before concluding that a feature is missing. The Raspberry Pi 5 deployment (offline mode, Ground Node) is not in this repo either; it lives in the separate fork `OrbitScopePI`.
 
 ## Commands
 
@@ -14,23 +14,30 @@ Backend (run from `backend/`, Python 3.10+):
 ```bash
 pip install -r requirements.txt
 python run.py                         # uvicorn app.main:app on :8000 (reload when DEBUG=true); docs at /docs
-pytest tests/ -v                      # all tests
+pytest tests/ -v                      # all tests (104, about 20 s, offline)
 pytest tests/test_moving_objects.py -v   # one file
 pytest tests/test_api_and_ml.py::test_root_endpoint -v   # one test
+python -m scripts.prewarm             # fill the on-disk cache for the 5 challenge targets (~8-10 min, needs network)
 ```
-Config comes from `backend/.env` (template: `.env.example`), loaded by `app/core/config.py` (pydantic-settings, `settings` singleton).
+`scripts.prewarm` options: `--targets barnard,wise-0855`, `--quick` (default detector only), `--no-photometry`, `--no-demo-runs`.
+
+Config comes from `backend/.env` (template: `.env.example`), loaded by `app/core/config.py` (pydantic-settings, `settings` singleton). `env_file=".env"` is relative to the current directory, so `backend/.env` is only read when the server starts from `backend/`. The `.claude/launch.json` `backend` entry runs `uvicorn --app-dir backend` from the repo root (no reload), so it ignores that file and uses the defaults (`DEBUG=false`, `PREWARM_ON_STARTUP=false`); the cache and DB paths are anchored to the source tree, so they do not depend on the working directory.
+
+Tests: there is no pytest config file; run from `backend/` so `app.*` imports resolve. `tests/conftest.py` has two autouse fixtures: it makes JPL SB Ident raise (tests that need it stub `small_bodies.objects_in_field` with `monkeypatch`), and it redirects the catalog-overlay disk cache to `tmp_path`. Async code is tested through `asyncio.run(...)` inside plain sync tests, not `pytest.mark.asyncio`. `tests/fixtures/*.fits` are real SPHEREx cutouts (marked binary in `.gitattributes`). Despite its name, `test_catalog_live.py` is offline: it feeds payloads in the real JPL formats.
 
 Frontend (run from `frontend/`):
 ```bash
-npm install
+npm install       # node_modules is not checked in; run this before any other npm script
 npm run dev       # Vite dev server
 npm run build     # tsc type-check + vite build — the main correctness check for frontend changes
+npx eslint src/pages/BlinkPage.tsx   # lint one file
 ```
+There is no frontend test runner (no Vitest/Jest); `npm run build` and `npm run lint` are the checks.
 `npm run lint` runs ESLint 9 with a flat config (`eslint.config.js`, typescript-eslint + react-hooks). Errors fail; `any` is only a warning, because the older demo pages still use it. `npm run typecheck` runs `tsc --noEmit`.
 
 Docker: `docker compose up --build` serves the app on :8080. Images: `backend/Dockerfile` (uvicorn, data in the `/data` volume) and `frontend/Dockerfile` (Vite build with an empty `VITE_API_BASE`, served by nginx, which proxies `/api` to `backend:8000`). `services/api.ts` uses `??`, so an empty `VITE_API_BASE` means same origin.
 
-`start.bat` / `start.ps1` at the root launch backend and frontend in separate windows.
+`start.bat` / `start.ps1` at the root launch backend and frontend in separate windows. Line endings are pinned in `.gitattributes`: `*.bat`/`*.ps1` are CRLF, Dockerfiles, `docker-compose.yml`, `*.conf` and `*.sh` are LF. Keep them that way when editing those files on Windows.
 
 The Vite dev server runs on 5173. The frontend calls the backend directly via `VITE_API_BASE` (default `http://localhost:8000`) in `src/services/api.ts`; the Vite `/api` proxy exists but is not what the axios client uses.
 
@@ -39,11 +46,11 @@ The Vite dev server runs on 5173. The frontend calls the backend directly via `V
 Every page in the UI uses real data:
 
 - Blink, Detection, Comparison and Analysis use SPHEREx data via IRSA.
-- Sky Explorer uses the saved runs and candidates plus live status.
+- Sky Explorer uses the saved runs and candidates (`/api/v1/spherex/overview`) plus live status.
 - Catalog uses live JPL data (`app/services/jpl_catalog.py`: SBDB, Horizons, SB Ident).
 - Planet X runs a live Rayleigh clustering test on JPL orbits (`app/services/etno.py`): the complete SBDB Query API sample (a ≥ 150 AU, q ≥ 30 AU, condition code ≤ 5) next to the 20-object literature sample; its evidence cards are labelled literature.
 
-Real-data paths must never fall back to invented values: return a 502 with an explanation instead. The test suite blocks network access to SB Ident in `tests/conftest.py`, so it runs offline in about 10 s.
+The no-fallback rule for these paths is spelled out under "Data transparency" below.
 
 - `app/services/spherex_archive.py`:
   1. Queries IRSA TAP `spherex.obscore` with `CONTAINS(POINT(ra,dec), s_region)`. Collections are matched by the `spherex` prefix, so new releases are picked up without code changes.
@@ -51,7 +58,7 @@ Real-data paths must never fall back to invented values: return a 502 with an ex
   3. Downloads IBE cutouts (`?center=&size=`), stores them compactly, and drops the ~5 MB PSF cube.
   4. Subtracts ZODI and the local sky, masks FLAGS bits, reprojects onto a north-up TAN grid with SIP-aware `map_coordinates`, and does an inverse-variance coadd per survey pass (frames >30 days apart are separate passes). It also fills saturated star cores.
   5. Returns float32 frames as base64; the browser does stretching, colour maps, difference and motion modes.
-- Everything is cached under `backend/cache/spherex/` (gitignored). The first request for a new field takes 30–90 s; repeats are instant.
+- Everything is cached under `backend/cache/spherex/` (gitignored; Docker: `/data/cache`). Candidates and runs live in SQLite at `backend/data/orbitscope.db` (gitignored; Docker: `/data/db`). The first request for a new field takes 30–90 s; repeats are instant.
 - `app/services/target_resolver.py` accepts decimal or sexagesimal coordinates, the five challenge targets (Gaia DR3/SIMBAD positions + proper motion), CDS Sesame (with a CfA mirror) and NED. High-PM targets are propagated to the SPHEREx epoch.
 - Routes are in `app/api/routes/spherex.py`: `/api/v1/spherex/{targets,resolve,coverage,blink,blink.gif}`.
 - Frontend: `pages/BlinkPage.tsx` (`/`), `pages/EmbedPage.tsx` (`/embed`, iframe-friendly), `components/blink/BlinkViewer.tsx`, `lib/spherex.ts`. The URL query (`target, ra, dec, fov, det, mode, per, max`) is the source of truth, so links are shareable.
@@ -101,7 +108,7 @@ Real-data paths must never fall back to invented values: return a 502 with an ex
 ## Backend architecture
 
 - **`app/main.py`** — FastAPI app.
-  - Middleware: `json_errors` (JSON 500s), then `RateLimitMiddleware` (`app/core/rate_limit.py`), then CORS outermost, so 429s and 500s keep CORS headers.
+  - Middleware: `json_errors` (JSON 500s), then `RateLimitMiddleware` (`app/core/rate_limit.py`), then CORS outermost, so 429s and 500s keep CORS headers. The rate limit only applies to the `(method, path prefix)` pairs in `LIMITED` in `rate_limit.py`: add any new endpoint that downloads data or computes heavily there (status, job polling and saved candidates are deliberately not limited).
   - The `lifespan` hook records the startup time and prunes the SPHEREx cache.
   - There are no service singletons on `app.state`: modules import their own singletons (`spherex_archive`, `job_manager`, `get_store()`).
 - **`app/api/routes/`** — `spherex`, `jobs`, `catalog`, `planetx`, `system`, each with prefix `/api/v1/<area>`. Routes take a `locale` param and return localized messages from a per-module `MESSAGES = {"en": ..., "az": ...}` dict; add both languages when adding messages.
